@@ -8,8 +8,16 @@ import os
 import json
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///math_trainer.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Database configuration
+if os.environ.get('DATABASE_URL'):
+    # Use PostgreSQL in production (Koyeb)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+else:
+    # Use SQLite in development
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///math_trainer.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)

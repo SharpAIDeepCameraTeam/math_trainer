@@ -19,6 +19,10 @@ service:
       value: app.py
     - name: FLASK_ENV
       value: production
+    - name: SECRET_KEY
+      secret: math-trainer-secret-key
+    - name: DATABASE_URL
+      secret: math-trainer-database-url
   scale:
     horizontal:
       min: 1
@@ -27,3 +31,11 @@ service:
         cpu: 80
   regions:
     - fra
+
+databases:
+  - type: postgresql
+    name: math-trainer-db
+    version: "15"
+    env:
+      - name: DATABASE_URL
+        value: "postgres://{{ .Database.User }}:{{ .Database.Password }}@{{ .Database.Host }}:{{ .Database.Port }}/{{ .Database.Name }}"

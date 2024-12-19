@@ -45,6 +45,20 @@ The application will be available at `http://localhost:8000`.
 4. View your results and timing analysis
 5. (Optional) Create an account to save your progress
 
+## Database Configuration
+
+The application uses different databases for development and production:
+
+### Development
+- SQLite database (math_trainer.db)
+- Automatically created in the project directory
+- No additional configuration needed
+
+### Production (Koyeb)
+- PostgreSQL database
+- Automatically provisioned by Koyeb
+- Connection string provided via DATABASE_URL environment variable
+
 ## Deployment
 
 ### Docker
@@ -63,9 +77,9 @@ docker run -p 8080:8080 math-trainer
 curl -fsSL https://cli.koyeb.com/install.sh | bash
 ```
 
-2. Login to Koyeb:
+2. Create secrets for the database and application:
 ```bash
-koyeb login
+koyeb secrets create math-trainer-secret-key --value "your-secret-key"
 ```
 
 3. Deploy the application:
@@ -73,7 +87,11 @@ koyeb login
 koyeb app init math-trainer
 ```
 
-The application will be deployed and accessible through the Koyeb-provided URL.
+The application will be deployed with:
+- A PostgreSQL database
+- Automatic SSL/TLS
+- Health monitoring
+- Auto-scaling
 
 ## Health Check
 
