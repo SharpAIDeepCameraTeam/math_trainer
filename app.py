@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -29,8 +29,15 @@ login_manager.login_view = 'login'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     tests = db.relationship('TestHistory', backref='user', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 class TestHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -125,29 +132,51 @@ def get_categories():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.json
-        user = User.query.filter_by(username=data['username']).first()
-        if user and check_password_hash(user.password_hash, data['password']):
-            login_user(user)
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'message': 'Invalid username or password'})
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = request.form.get('remember', False) == 'on'
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        
+        flash('Invalid username or password.', 'error')
+    
     return render_template('login.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        data = request.json
-        if User.query.filter_by(username=data['username']).first():
-            return jsonify({'success': False, 'message': 'Username already exists'})
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        email = request.form.get('email')
+
+        # Validation
+        error = None
+        if len(password) < 4:
+            error = 'Password must be at least 4 characters long.'
+        elif password != confirm_password:
+            error = 'Passwords do not match.'
+        elif User.query.filter_by(username=username).first():
+            error = 'Username already exists.'
         
-        user = User(
-            username=data['username'],
-            password_hash=generate_password_hash(data['password'])
-        )
-        db.session.add(user)
-        db.session.commit()
-        login_user(user)
-        return jsonify({'success': True})
+        if error is None:
+            user = User(
+                username=username,
+                email=email
+            )
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        
+        flash(error, 'error')
+    
     return render_template('signup.html')
 
 @app.route('/logout')
@@ -167,6 +196,7 @@ def start_test():
         'time_limit': int(data['timeLimit']) * 60,
         'start_time': time.time(),
         'question_times': [],
+        'wrong_questions': [],
         'current_question': 0,
         'completed': False
     }
@@ -176,62 +206,46 @@ def start_test():
 @app.route('/api/record-question', methods=['POST'])
 def record_question():
     data = request.json
-    test_id = data['testId']
+    test_id = data['test_id']
     test = active_tests.get(test_id)
     
-    if not test or test['completed']:
-        return jsonify({'error': 'Invalid test'}), 400
+    if not test:
+        return jsonify({'error': 'Test not found'}), 404
     
-    current_time = time.time() - test['start_time']
-    test['question_times'].append(current_time)
-    test['current_question'] += 1
+    test['question_times'].append(data['time'])
+    test['current_question'] = data['question_number']
     
-    # Record wrong question if specified
-    if 'wrongQuestion' in data:
-        if 'wrong_questions' not in test:
-            test['wrong_questions'] = []
+    if data.get('wrong_data'):
         test['wrong_questions'].append({
-            'question_number': data['wrongQuestion'],
-            'category': data.get('category'),
-            'subcategory': data.get('subcategory')
+            'question_number': data['question_number'],
+            'category': data['wrong_data']['category']
         })
     
     if test['current_question'] >= test['total_questions']:
         test['completed'] = True
-        if current_user.is_authenticated:
+        if test['user_id']:
             save_test_history(test)
-        
-    return jsonify({
-        'current_question': test['current_question'],
-        'completed': test['completed']
-    })
+    
+    return jsonify({'success': True})
 
-@app.route('/api/get-results/<test_id>')
+@app.route('/api/results/<test_id>')
 def get_results(test_id):
     test = active_tests.get(test_id)
     if not test:
         return jsonify({'error': 'Test not found'}), 404
-        
-    question_times = []
-    for i, time_taken in enumerate(test['question_times']):
-        if i > 0:
-            duration = time_taken - test['question_times'][i-1]
-        else:
-            duration = time_taken
-        
-        minutes = int(duration // 60)
-        seconds = int(duration % 60)
-        question_times.append(f"{minutes:02d}:{seconds:02d}")
     
-    total_time = time.time() - test['start_time']
+    total_time = int(time.time() - test['start_time'])
+    if total_time > test['time_limit']:
+        total_time = test['time_limit']
     
     return jsonify({
+        'user_id': test['user_id'],
         'test_type': test['test_type'],
         'total_questions': test['total_questions'],
         'completed_questions': test['current_question'],
-        'total_time': f"{int(total_time//60):02d}:{int(total_time%60):02d}",
-        'question_times': question_times,
-        'is_guest': not current_user.is_authenticated
+        'total_time': total_time,
+        'question_times': test['question_times'],
+        'wrong_questions': test['wrong_questions']
     })
 
 @app.route('/api/history')
