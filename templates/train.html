@@ -1,230 +1,177 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Trainer - Training</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
-    <style>
-        body {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-color: #f8f9fa;
-        }
+{% extends "base.html" %}
 
-        .full-screen {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+{% block title %}Training Session{% endblock %}
 
-        .card {
-            width: 100%;
-            max-width: 800px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
+{% block additional_styles %}
+<style>
+    .training-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        text-align: center;
+    }
 
-        .timer-container {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 20px;
-        }
+    .timer {
+        font-size: 5rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 2rem 0;
+        font-family: monospace;
+    }
 
-        .timer-ring {
-            width: 100%;
-            height: 100%;
-            border: 8px solid #f0f0f0;
-            border-top: 8px solid #28a745;
-            border-radius: 50%;
-            transition: all 0.3s;
-        }
+    .question-counter {
+        font-size: 2rem;
+        color: #7f8c8d;
+        margin-bottom: 2rem;
+    }
 
-        #timer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.5em;
-            font-weight: bold;
-        }
+    .progress-bar {
+        height: 10px;
+        background: #ecf0f1;
+        border-radius: 5px;
+        margin: 2rem 0;
+        overflow: hidden;
+    }
 
-        .question-display {
-            font-size: 1.2em;
-            margin: 20px 0;
-        }
+    .progress-fill {
+        height: 100%;
+        background: #3498db;
+        width: 0;
+        transition: width 0.3s ease;
+    }
 
-        .key-hint {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #6c757d;
-        }
+    .instructions {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 2rem 0;
+        text-align: left;
+    }
 
-        .key-hint kbd {
-            background: #343a40;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
+    .key-command {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: #e9ecef;
+        border-radius: 4px;
+        font-family: monospace;
+        margin: 0 0.2rem;
+    }
 
-        .test-info {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #6c757d;
+    .pulse {
+        animation: pulse-animation 0.5s;
+    }
+
+    @keyframes pulse-animation {
+        0% {
+            transform: scale(1);
         }
-    </style>
-</head>
-<body>
-    <div class="full-screen">
-        <!-- Setup Screen -->
-        <div id="setup-screen" class="card">
-            <div class="card-body">
-                <h2 class="card-title text-center mb-4">MathCounts Training</h2>
-                <div class="test-info mb-4">
-                    <p class="mb-2">Standard MathCounts Sprint Round Format:</p>
-                    <p class="mb-0"><strong>30 problems</strong> in <strong>40 minutes</strong></p>
-                </div>
-                <form id="setup-form" method="POST" action="{{ url_for('start_test') }}">
-                    <div class="mb-3">
-                        <label class="form-label">Test Type</label>
-                        <select class="form-select" id="test-type" name="test_type" required>
-                            <option value="mathcounts" selected>MathCounts Sprint Round (30 problems, 40 minutes)</option>
-                            <option value="amc8">AMC 8 (25 problems, 40 minutes)</option>
-                            <option value="amc10">AMC 10 (25 problems, 75 minutes)</option>
-                            <option value="amc12">AMC 12 (25 problems, 75 minutes)</option>
-                            <option value="aime">AIME (15 problems, 3 hours)</option>
-                            <option value="mandelbrot">Mandelbrot (7 problems, 50 minutes)</option>
-                            <option value="custom">Custom Test</option>
-                        </select>
-                    </div>
-                    <div id="custom-options" class="d-none">
-                        <div class="mb-3">
-                            <label class="form-label">Number of Problems</label>
-                            <input type="number" class="form-control" name="num_questions" value="30" min="1" max="100">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Time Limit (minutes)</label>
-                            <input type="number" class="form-control" name="time_limit" value="40" min="1" max="240">
-                        </div>
-                    </div>
-                    <div class="text-center">
-                        <button type="submit" class="btn btn-primary btn-lg">Start Test</button>
-                    </div>
-                </form>
+        50% {
+            transform: scale(1.05);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .test-type-select {
+        margin-bottom: 2rem;
+    }
+
+    .test-type-select select {
+        padding: 0.5rem 1rem;
+        font-size: 1.1rem;
+        border-radius: 5px;
+        border: 1px solid #ced4da;
+    }
+
+    .start-test {
+        display: inline-block;
+        padding: 1rem 2rem;
+        font-size: 1.2rem;
+        background: #2ecc71;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .start-test:hover {
+        background: #27ae60;
+        transform: translateY(-2px);
+    }
+
+    .test-settings {
+        margin: 2rem 0;
+        text-align: left;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    .setting-group {
+        margin-bottom: 1rem;
+    }
+
+    .setting-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+
+    .setting-group input[type="number"] {
+        width: 100px;
+        padding: 0.3rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="training-container">
+    <div id="setup-view">
+        <h2>Start Training Session</h2>
+        <div class="test-settings">
+            <div class="setting-group">
+                <label for="num-questions">Number of Questions:</label>
+                <input type="number" id="num-questions" value="30" min="1" max="100">
+            </div>
+            <div class="setting-group">
+                <label for="test-type">Test Type:</label>
+                <select id="test-type" class="form-select">
+                    <option value="competition">Competition Practice</option>
+                    <option value="homework">Homework Problems</option>
+                    <option value="exam">Exam Practice</option>
+                    <option value="custom">Custom Practice</option>
+                </select>
             </div>
         </div>
-
-        <!-- Test Screen -->
-        <div id="test-screen" class="card d-none">
-            <div class="card-body text-center">
-                <div class="timer-container">
-                    <div class="timer-ring"></div>
-                    <div id="timer">40:00</div>
-                </div>
-                <div class="question-display">
-                    <h3 id="progress" class="mb-3">Question 1/30</h3>
-                    <p class="text-muted">Press <kbd>Space</kbd> when you complete a question</p>
-                </div>
-                <div class="mb-4">
-                    <button id="wrong-answer" class="btn btn-warning me-2">Mark Wrong (W)</button>
-                    <button id="end-test" class="btn btn-danger">End Test</button>
-                </div>
-                <div class="key-hint">
-                    <strong>Keyboard Shortcuts:</strong><br>
-                    <kbd>Space</kbd> Next Question | <kbd>W</kbd> Mark Wrong | <kbd>E</kbd> End Test
-                </div>
-            </div>
-        </div>
-
-        <!-- Results Screen -->
-        <div id="results-screen" class="card d-none">
-            <div class="card-body">
-                <h2 class="card-title text-center mb-4">Test Results</h2>
-                
-                <div id="guest-banner" class="alert alert-info mb-4 d-none">
-                    <h4 class="alert-heading">Create an account to save your progress!</h4>
-                    <p>Sign up to track your improvement over time and access detailed statistics.</p>
-                    <hr>
-                    <div class="d-flex gap-2">
-                        <a href="/signup" class="btn btn-primary">Sign Up</a>
-                        <a href="/login" class="btn btn-outline-primary">Login</a>
-                    </div>
-                </div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h5>Test Type: <span id="result-test-type"></span></h5>
-                        <h5>Questions Completed: <span id="result-questions"></span></h5>
-                        <h5>Total Time: <span id="result-total-time"></span></h5>
-                        <h5>Average Time per Question: <span id="result-avg-time"></span></h5>
-                    </div>
-                    <div class="col-md-6">
-                        <canvas id="speedChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="text-center">
-                    <button id="new-test" class="btn btn-primary btn-lg">Start New Test</button>
-                    <a href="/dashboard" class="btn btn-outline-primary btn-lg ms-2">Back to Dashboard</a>
-                </div>
-            </div>
-        </div>
+        <button class="start-test" onclick="startTest()">Start Training</button>
     </div>
 
-    <!-- Wrong Question Modal -->
-    <div class="modal fade" id="wrongQuestionModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Select Problem Category</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <select class="form-select mb-3" id="category-select">
-                        {% for category, subcategories in categories.items() %}
-                        <optgroup label="{{ category }}">
-                            {% for subcategory in subcategories %}
-                            <option value="{{ category }}/{{ subcategory }}">{{ subcategory }}</option>
-                            {% endfor %}
-                        </optgroup>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-category">Save</button>
-                </div>
-            </div>
+    <div id="training-view" style="display: none;">
+        <div class="timer" id="timer">00:00</div>
+        <div class="question-counter">
+            Question <span id="current-question">1</span>/<span id="total-questions">30</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+        
+        <div class="instructions">
+            <h4>Instructions:</h4>
+            <ul>
+                <li>Press <span class="key-command">Space</span> after completing each problem</li>
+                <li>Your time will be tracked automatically</li>
+                <li>After finishing, you can mark wrong questions and categorize mistakes</li>
+                <li>View detailed analytics to track your progress</li>
+            </ul>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        // Show/hide custom options based on test type
-        document.getElementById('test-type').addEventListener('change', function() {
-            const customOptions = document.getElementById('custom-options');
-            if (this.value === 'custom') {
-                customOptions.classList.remove('d-none');
-            } else {
-                customOptions.classList.add('d-none');
-                if (this.value === 'mathcounts') {
-                    document.querySelector('input[name="num_questions"]').value = '30';
-                    document.querySelector('input[name="time_limit"]').value = '40';
-                }
-            }
-        });
-    </script>
-    <script src="{{ url_for('static', filename='train.js') }}"></script>
-</body>
-</html>
+{% block scripts %}
+<script src="{{ url_for('static', filename='train.js') }}"></script>
+{% endblock %}

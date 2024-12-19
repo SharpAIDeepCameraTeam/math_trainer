@@ -129,7 +129,13 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return render_template('dashboard.html', user=current_user)
+    # Mock data for dashboard - replace with real data from database
+    dashboard_data = {
+        'overall_accuracy': 85.5,  # percentage
+        'current_streak': 5,       # days
+        'total_problems': 150      # total problems solved
+    }
+    return render_template('dashboard.html', **dashboard_data)
 
 @app.route('/train')
 @login_required
