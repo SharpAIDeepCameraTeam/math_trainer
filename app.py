@@ -110,6 +110,16 @@ PROBLEM_CATEGORIES = {
     ]
 }
 
+# Test configurations
+TEST_CONFIGS = {
+    'mathcounts': {'questions': 30, 'time': 40},
+    'amc8': {'questions': 25, 'time': 40},
+    'amc10': {'questions': 25, 'time': 75},
+    'amc12': {'questions': 25, 'time': 75},
+    'aime': {'questions': 15, 'time': 180},  # 3 hours
+    'mandelbrot': {'questions': 7, 'time': 50},
+}
+
 # Active tests in memory
 active_tests = {}
 
@@ -128,10 +138,12 @@ def train():
 @app.route('/start_test', methods=['POST'])
 def start_test():
     test_type = request.form.get('test_type')
-    if test_type == 'mathcounts':
-        num_questions = 30
-        time_limit = 40
-    else:
+    
+    if test_type in TEST_CONFIGS:
+        config = TEST_CONFIGS[test_type]
+        num_questions = config['questions']
+        time_limit = config['time']
+    else:  # custom test
         num_questions = int(request.form.get('num_questions', 30))
         time_limit = int(request.form.get('time_limit', 40))
 

@@ -98,19 +98,23 @@
                     <div class="mb-3">
                         <label class="form-label">Test Type</label>
                         <select class="form-select" id="test-type" name="test_type" required>
-                            <option value="mathcounts" selected>MathCounts Sprint Round</option>
-                            <option value="speed">Speed Training</option>
-                            <option value="custom">Custom Training</option>
+                            <option value="mathcounts" selected>MathCounts Sprint Round (30 problems, 40 minutes)</option>
+                            <option value="amc8">AMC 8 (25 problems, 40 minutes)</option>
+                            <option value="amc10">AMC 10 (25 problems, 75 minutes)</option>
+                            <option value="amc12">AMC 12 (25 problems, 75 minutes)</option>
+                            <option value="aime">AIME (15 problems, 3 hours)</option>
+                            <option value="mandelbrot">Mandelbrot (7 problems, 50 minutes)</option>
+                            <option value="custom">Custom Test</option>
                         </select>
                     </div>
                     <div id="custom-options" class="d-none">
                         <div class="mb-3">
-                            <label class="form-label">Number of Questions</label>
-                            <input type="number" class="form-control" id="num-questions" name="num_questions" value="30" min="1" max="100">
+                            <label class="form-label">Number of Problems</label>
+                            <input type="number" class="form-control" name="num_questions" value="30" min="1" max="100">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Time Limit (minutes)</label>
-                            <input type="number" class="form-control" id="time-limit" name="time_limit" value="40" min="1" max="120">
+                            <input type="number" class="form-control" name="time_limit" value="40" min="1" max="240">
                         </div>
                     </div>
                     <div class="text-center">
@@ -215,8 +219,8 @@
             } else {
                 customOptions.classList.add('d-none');
                 if (this.value === 'mathcounts') {
-                    document.getElementById('num-questions').value = '30';
-                    document.getElementById('time-limit').value = '40';
+                    document.querySelector('input[name="num_questions"]').value = '30';
+                    document.querySelector('input[name="time_limit"]').value = '40';
                 }
             }
         });
