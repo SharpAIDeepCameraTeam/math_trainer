@@ -136,38 +136,48 @@ def train():
     return render_template('train.html', user=current_user, categories=PROBLEM_CATEGORIES)
 
 @app.route('/start_test', methods=['POST'])
+@login_required
 def start_test():
-    test_type = request.form.get('test_type')
-    
-    if test_type in TEST_CONFIGS:
-        config = TEST_CONFIGS[test_type]
-        num_questions = config['questions']
-        time_limit = config['time']
-    else:  # custom test
-        num_questions = int(request.form.get('num_questions', 30))
-        time_limit = int(request.form.get('time_limit', 40))
+    try:
+        test_type = request.form.get('test_type')
+        
+        if test_type in TEST_CONFIGS:
+            config = TEST_CONFIGS[test_type]
+            num_questions = config['questions']
+            time_limit = config['time']
+        else:  # custom test
+            num_questions = int(request.form.get('num_questions', 30))
+            time_limit = int(request.form.get('time_limit', 40))
 
-    test_id = str(time.time())
-    test_data = {
-        'user_id': current_user.id if current_user.is_authenticated else None,
-        'test_type': test_type,
-        'total_questions': num_questions,
-        'time_limit': time_limit * 60,  # Convert to seconds
-        'start_time': time.time(),
-        'question_times': [],
-        'wrong_questions': [],
-        'current_question': 0,
-        'completed': False
-    }
-    active_tests[test_id] = test_data
-    
-    return redirect(url_for('test_interface', test_id=test_id))
+        test_id = str(int(time.time()))
+        test_data = {
+            'user_id': current_user.id,
+            'test_type': test_type,
+            'total_questions': num_questions,
+            'time_limit': time_limit * 60,  # Convert to seconds
+            'start_time': time.time(),
+            'question_times': [],
+            'wrong_questions': [],
+            'current_question': 0,
+            'completed': False
+        }
+        active_tests[test_id] = test_data
+        
+        return redirect(url_for('test_interface', test_id=test_id))
+    except Exception as e:
+        flash(f'Failed to start test: {str(e)}', 'error')
+        return redirect(url_for('train'))
 
 @app.route('/test/<test_id>')
+@login_required
 def test_interface(test_id):
     test = active_tests.get(test_id)
     if not test:
         flash('Test not found or has expired', 'error')
+        return redirect(url_for('train'))
+        
+    if test['user_id'] != current_user.id:
+        flash('Unauthorized access to test', 'error')
         return redirect(url_for('train'))
     
     return render_template('test.html', 
