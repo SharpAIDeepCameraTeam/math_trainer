@@ -1,118 +1,135 @@
 {% extends "base.html" %}
 
-{% block title %}Math Trainer - Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block additional_styles %}
 <style>
-    .stats-card {
-        background: white;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        transition: transform 0.2s;
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
     }
 
-    .stats-card:hover {
+    .stat-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+
+    .stat-card:hover {
         transform: translateY(-5px);
     }
 
-    .stats-card h4 {
-        color: #2c3e50;
-        margin-bottom: 15px;
-    }
-
-    .stats-card .number {
-        font-size: 2em;
+    .big-number {
+        font-size: 4rem;
         font-weight: bold;
-        color: #3498db;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
     }
 
-    .dark-theme .stats-card {
-        background: #2c2c2c;
-        color: #ffffff;
+    .stat-label {
+        color: #6c757d;
+        text-transform: uppercase;
+        font-size: 1rem;
+        letter-spacing: 1px;
     }
 
-    .dark-theme .stats-card h4 {
-        color: #ffffff;
+    .streak-flame {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #e74c3c;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .action-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    .action-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .nav-analytics {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background 0.2s ease;
+    }
+
+    .nav-analytics:hover {
+        background: #2980b9;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>Total Tests</h4>
-                <div class="number" id="total-tests">-</div>
+<div class="dashboard-container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="big-number">{{ "{:.1f}%".format(overall_accuracy) }}</div>
+                <div class="stat-label">Overall Accuracy</div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>Total Questions</h4>
-                <div class="number" id="total-questions">-</div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="streak-flame">🔥</div>
+                <div class="big-number">{{ current_streak }}</div>
+                <div class="stat-label">Day Streak</div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>Average Time</h4>
-                <div class="number" id="average-time">-</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card">
-                <h4>Success Rate</h4>
-                <div class="number" id="success-rate">-</div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="big-number">{{ total_problems }}</div>
+                <div class="stat-label">Total Problems Solved</div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Performance Over Time</h5>
-                    <canvas id="performanceChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Problem Categories</h5>
-                    <canvas id="categoryChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Recent Tests</h5>
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Questions</th>
-                                    <th>Time</th>
-                                    <th>Score</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recent-tests">
-                                <tr>
-                                    <td colspan="5" class="text-center">No tests taken yet</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="quick-actions">
+        <a href="{{ url_for('train') }}" class="action-card">
+            <div class="action-icon">📝</div>
+            <h3>Start New Test</h3>
+            <p>Practice with a new set of problems</p>
+        </a>
+        <a href="{{ url_for('analytics') }}" class="action-card">
+            <div class="action-icon">📊</div>
+            <h3>View Analytics</h3>
+            <p>See detailed performance insights</p>
+        </a>
+        <a href="#" class="action-card" data-bs-toggle="modal" data-bs-target="#settingsModal">
+            <div class="action-icon">⚙️</div>
+            <h3>Settings</h3>
+            <p>Customize your training experience</p>
+        </a>
     </div>
 </div>
 {% endblock %}

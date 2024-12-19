@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import os
 import json
+import logging
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
@@ -55,57 +56,57 @@ class ProblemCategory(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('problem_category.id'), nullable=True)
     subcategories = db.relationship('ProblemCategory', backref=db.backref('parent', remote_side=[id]))
 
-# Problem categories data
+# Problem categories
 PROBLEM_CATEGORIES = {
-    "Geometry": [
-        "Angle Chasing",
-        "Congruence and Similarity",
-        "Circle Problems",
-        "Polygon Properties",
-        "Triangles",
-        "Coordinate Geometry",
-        "3D Geometry",
-        "Special Triangles"
+    'Geometry': [
+        'Angle Chasing',
+        'Congruence and Similarity',
+        'Circle Problems',
+        'Polygon Properties',
+        'Triangles',
+        'Coordinate Geometry',
+        '3D Geometry',
+        'Special Triangles'
     ],
-    "Algebra": [
-        "Linear Equations",
-        "Quadratics",
-        "Polynomials",
-        "Exponential and Logarithmic Problems",
-        "Functional Equations",
-        "Sequences and Series"
+    'Algebra': [
+        'Linear Equations',
+        'Quadratics',
+        'Polynomials',
+        'Exponential and Logarithmic Problems',
+        'Functional Equations',
+        'Sequences and Series'
     ],
-    "Arithmetic and Number Theory": [
-        "Prime Factorization",
-        "Divisibility",
-        "Modular Arithmetic",
-        "Number Bases",
-        "Clock Problems",
-        "Digit Problems",
-        "Consecutive Numbers"
+    'Arithmetic and Number Theory': [
+        'Prime Factorization',
+        'Divisibility',
+        'Modular Arithmetic',
+        'Number Bases',
+        'Clock Problems',
+        'Digit Problems',
+        'Consecutive Numbers'
     ],
-    "Word Problems": [
-        "Speed, Distance, and Rate",
-        "Work Problems",
-        "Mixture Problems",
-        "Age Problems",
-        "Percentage Problems",
-        "Proportion and Ratio Problems"
+    'Word Problems': [
+        'Speed, Distance, and Rate',
+        'Work Problems',
+        'Mixture Problems',
+        'Age Problems',
+        'Percentage Problems',
+        'Proportion and Ratio Problems'
     ],
-    "Counting and Probability": [
-        "Permutations",
-        "Combinations",
-        "Probability",
-        "Expected Value",
-        "Set Problems"
+    'Counting and Probability': [
+        'Permutations',
+        'Combinations',
+        'Probability',
+        'Expected Value',
+        'Set Problems'
     ],
-    "Miscellaneous Problems": [
-        "Clock Problems",
-        "Calendar Problems",
-        "Pattern Problems",
-        "Optimization Problems",
-        "Logic Problems",
-        "Estimation Problems"
+    'Miscellaneous Problems': [
+        'Clock Problems',
+        'Calendar Problems',
+        'Pattern Problems',
+        'Optimization Problems',
+        'Logic Problems',
+        'Estimation Problems'
     ]
 }
 
@@ -131,6 +132,7 @@ def index():
     return render_template('dashboard.html', user=current_user)
 
 @app.route('/train')
+@login_required
 def train():
     return render_template('train.html', user=current_user, categories=PROBLEM_CATEGORIES)
 
@@ -150,11 +152,12 @@ def start_test():
 
         test_id = str(int(time.time()))
         test_data = {
+            'test_id': test_id,
             'user_id': current_user.id,
             'test_type': test_type,
             'total_questions': num_questions,
             'time_limit': time_limit * 60,  # Convert to seconds
-            'start_time': time.time(),
+            'start_time': int(time.time()),
             'question_times': [],
             'wrong_questions': [],
             'current_question': 0,
@@ -164,6 +167,7 @@ def start_test():
         
         return redirect(url_for('test_interface', test_id=test_id))
     except Exception as e:
+        app.logger.error(f"Error starting test: {str(e)}")
         flash(f'Failed to start test: {str(e)}', 'error')
         return redirect(url_for('train'))
 
@@ -183,6 +187,81 @@ def test_interface(test_id):
                          user=current_user, 
                          test=test,
                          categories=PROBLEM_CATEGORIES)
+
+@app.route('/api/record-question', methods=['POST'])
+@login_required
+def record_question():
+    try:
+        data = request.json
+        test_id = data['test_id']
+        test = active_tests.get(test_id)
+        
+        if not test:
+            return jsonify({'error': 'Test not found'}), 404
+            
+        if test['user_id'] != current_user.id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        question_time = data['time']
+        test['question_times'].append(question_time)
+        test['current_question'] = data['question_number']
+        
+        if data.get('wrong_data'):
+            test['wrong_questions'].append({
+                'question_number': data['question_number'],
+                'category': data['wrong_data']['category']
+            })
+        
+        if test['current_question'] >= test['total_questions']:
+            test['completed'] = True
+            save_test_history(test)
+            active_tests.pop(test_id, None)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error recording question: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/results/<test_id>')
+@login_required
+def results(test_id):
+    # Mock data for results - replace with real data from database
+    test_data = {
+        'test': {
+            'current_question': 30,
+            'total_questions': 30,
+            'question_times': [15, 32, 45, 60, 75, 89, 102, 118, 130, 145,
+                             160, 178, 190, 205, 220, 238, 255, 270, 285, 300,
+                             315, 330, 348, 360, 375, 390, 405, 420, 435, 450],
+        },
+        'categories': {
+            'Geometry': ['Triangles', 'Circles', 'Polygons', 'Coordinate Geometry', 'Transformations'],
+            'Algebra': ['Equations', 'Inequalities', 'Functions', 'Polynomials', 'Complex Numbers'],
+            'Number Theory': ['Divisibility', 'Prime Numbers', 'Modular Arithmetic', 'Number Sequences', 'Diophantine Equations'],
+            'Word Problems': ['Rate Problems', 'Work Problems', 'Mixture Problems', 'Age Problems', 'Distance Problems'],
+            'Combinatorics': ['Permutations', 'Combinations', 'Probability', 'Expected Value', 'Graph Theory']
+        }
+    }
+    return render_template('results.html', **test_data)
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    # Mock data for analytics - replace with real data from database
+    analytics_data = {
+        'accuracy_trend': [85.5, 87.2, 88.1, 86.9, 89.0],  # Last 5 periods
+        'average_time': 45.3,  # seconds
+        'problems_per_day': 25,
+        'best_streak': 15,
+        'categories': [
+            {'name': 'Geometry', 'accuracy': 88.5},
+            {'name': 'Algebra', 'accuracy': 92.1},
+            {'name': 'Number Theory', 'accuracy': 85.7},
+            {'name': 'Word Problems', 'accuracy': 79.3},
+            {'name': 'Combinatorics', 'accuracy': 83.2}
+        ]
+    }
+    return render_template('analytics.html', **analytics_data)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -237,51 +316,6 @@ def signup():
 def logout():
     logout_user()
     return redirect(url_for('index'))
-
-@app.route('/api/record-question', methods=['POST'])
-def record_question():
-    data = request.json
-    test_id = data['test_id']
-    test = active_tests.get(test_id)
-    
-    if not test:
-        return jsonify({'error': 'Test not found'}), 404
-    
-    test['question_times'].append(data['time'])
-    test['current_question'] = data['question_number']
-    
-    if data.get('wrong_data'):
-        test['wrong_questions'].append({
-            'question_number': data['question_number'],
-            'category': data['wrong_data']['category']
-        })
-    
-    if test['current_question'] >= test['total_questions']:
-        test['completed'] = True
-        if test['user_id']:
-            save_test_history(test)
-    
-    return jsonify({'success': True})
-
-@app.route('/api/results/<test_id>')
-def get_results(test_id):
-    test = active_tests.get(test_id)
-    if not test:
-        return jsonify({'error': 'Test not found'}), 404
-    
-    total_time = int(time.time() - test['start_time'])
-    if total_time > test['time_limit']:
-        total_time = test['time_limit']
-    
-    return jsonify({
-        'user_id': test['user_id'],
-        'test_type': test['test_type'],
-        'total_questions': test['total_questions'],
-        'completed_questions': test['current_question'],
-        'total_time': total_time,
-        'question_times': test['question_times'],
-        'wrong_questions': test['wrong_questions']
-    })
 
 @app.route('/api/history')
 @login_required
@@ -340,15 +374,14 @@ def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
 
 def save_test_history(test):
-    total_time = int(time.time() - test['start_time'])
     history = TestHistory(
         user_id=test['user_id'],
         test_type=test['test_type'],
         total_questions=test['total_questions'],
         completed_questions=test['current_question'],
-        total_time=total_time,
+        total_time=test['question_times'][-1] if test['question_times'] else 0,
         question_times=json.dumps(test['question_times']),
-        wrong_questions=json.dumps(test.get('wrong_questions', []))
+        wrong_questions=json.dumps(test['wrong_questions'])
     )
     db.session.add(history)
     db.session.commit()

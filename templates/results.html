@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}Test Results{% endblock %}
+
+{% block additional_styles %}
+<style>
+    .results-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .question-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 10px;
+        margin: 20px 0;
+    }
+
+    .question-number {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .question-number:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .question-number.wrong {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .category-tag {
+        display: inline-block;
+        background: #e9ecef;
+        border-radius: 20px;
+        padding: 0.4rem 1rem;
+        font-size: 0.9rem;
+        color: #495057;
+        margin: 0.2rem;
+    }
+
+    .category-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .category-header {
+        font-size: 1.2rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .category-select {
+        max-height: none;
+    }
+
+    .category-group {
+        margin-bottom: 20px;
+    }
+
+    .subcategory-list {
+        list-style: none;
+        padding-left: 20px;
+    }
+
+    .subcategory-item {
+        margin: 5px 0;
+    }
+
+    .subcategory-item label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .subcategory-item input[type="radio"] {
+        margin-right: 10px;
+    }
+
+    .wrong-summary {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .category-stat {
+        margin-bottom: 1rem;
+    }
+
+    .category-stat-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .category-stat-bar {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .category-stat-fill {
+        height: 100%;
+        background: #dc3545;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <h2 class="text-center mb-4">Test Results</h2>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value">{{ test.current_question }}/{{ test.total_questions }}</div>
+                <div class="stat-label">Questions Completed</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value">
+                    {% set total_time = test.question_times[-1] if test.question_times else 0 %}
+                    {{ "{:02d}:{:02d}".format(total_time // 60, total_time % 60) }}
+                </div>
+                <div class="stat-label">Total Time</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-value">
+                    {% if test.question_times|length > 0 %}
+                        {{ "{:.1f}s".format(test.question_times[-1] / test.current_question) }}
+                    {% else %}
+                        0s
+                    {% endif %}
+                </div>
+                <div class="stat-label">Average Time per Question</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card wrong-count">
+                <div class="stat-value"><span id="wrong-count">0</span>/{{ test.total_questions }}</div>
+                <div class="stat-label">Wrong Questions (<span id="wrong-percentage">0%</span>)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <h4 class="mb-4">Time per Question</h4>
+                <canvas id="speedChart"></canvas>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="mb-4">Mark Wrong Questions</h4>
+                    <p class="text-muted mb-3">Click on the question numbers that were wrong and specify their categories.</p>
+                    <div class="question-grid" id="questionGrid">
+                        {% for i in range(test.total_questions) %}
+                            <div class="question-number" data-question="{{ i + 1 }}">{{ i + 1 }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="wrong-summary">
+                <h4 class="mb-4">Wrong Questions Summary</h4>
+                <div id="categorySummary">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('train') }}" class="btn btn-primary btn-lg">Start New Test</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary btn-lg ms-2">Back to Dashboard</a>
+    </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Problem Category for Question <span id="selectedQuestion"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="category-select">
+                    {% for category, subcategories in categories.items %}
+                    <div class="category-group">
+                        <h6>{{ category }}</h6>
+                        <div class="subcategory-list">
+                            {% for subcategory in subcategories %}
+                            <div class="subcategory-item">
+                                <label>
+                                    <input type="radio" name="category" value="{{ category }}/{{ subcategory }}">
+                                    {{ subcategory }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmCategory">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const wrongQuestions = new Map();
+    let currentSelectedQuestion = null;
+    const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+
+    // Initialize speed chart
+    const questionTimes = {{ test.question_times|tojson }};
+    const labels = Array.from({length: questionTimes.length}, (_, i) => `Q${i+1}`);
+    const times = [];
+    let prevTime = 0;
+    
+    for (let time of questionTimes) {
+        times.push((time - prevTime));
+        prevTime = time;
+    }
+
+    const ctx = document.getElementById('speedChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Time (seconds)',
+                data: times,
+                borderColor: '#2c3e50',
+                backgroundColor: 'rgba(44, 62, 80, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Time (seconds)'
+                    }
+                }
+            }
+        }
+    });
+
+    // Question grid handling
+    document.getElementById('questionGrid').addEventListener('click', (e) => {
+        const questionEl = e.target.closest('.question-number');
+        if (!questionEl) return;
+
+        currentSelectedQuestion = questionEl.dataset.question;
+        document.getElementById('selectedQuestion').textContent = currentSelectedQuestion;
+        modal.show();
+    });
+
+    // Category confirmation
+    document.getElementById('confirmCategory').addEventListener('click', () => {
+        const selectedCategory = document.querySelector('input[name="category"]:checked');
+        if (!selectedCategory || !currentSelectedQuestion) return;
+
+        const questionEl = document.querySelector(`[data-question="${currentSelectedQuestion}"]`);
+        questionEl.classList.add('wrong');
+        wrongQuestions.set(currentSelectedQuestion, selectedCategory.value);
+        
+        updateWrongSummary();
+        modal.hide();
+
+        // Reset radio selection
+        document.querySelector('input[name="category"]:checked').checked = false;
+    });
+
+    function updateWrongSummary() {
+        const categories = {};
+        const mainCategories = {};
+
+        wrongQuestions.forEach((category) => {
+            const [main, sub] = category.split('/');
+            if (!categories[category]) categories[category] = 0;
+            if (!mainCategories[main]) mainCategories[main] = 0;
+            
+            categories[category]++;
+            mainCategories[main]++;
+        });
+
+        const totalQuestions = {{ test.total_questions }};
+        const wrongCount = wrongQuestions.size;
+        const percentage = ((wrongCount / totalQuestions) * 100).toFixed(1);
+
+        document.getElementById('wrong-count').textContent = wrongCount;
+        document.getElementById('wrong-percentage').textContent = `${percentage}%`;
+
+        const summaryHTML = Object.entries(mainCategories).map(([category, count]) => {
+            const categoryPercentage = ((count / wrongCount) * 100).toFixed(1);
+            return `
+                <div class="category-stat">
+                    <div class="category-stat-label">
+                        <span>${category}</span>
+                        <span>${count} (${categoryPercentage}%)</span>
+                    </div>
+                    <div class="category-stat-bar">
+                        <div class="category-stat-fill" style="width: ${categoryPercentage}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('categorySummary').innerHTML = summaryHTML;
+    }
+});
+</script>
+{% endblock %}

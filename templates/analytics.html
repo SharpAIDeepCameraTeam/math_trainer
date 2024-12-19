@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+
+{% block additional_styles %}
+<style>
+    .analytics-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .stat-small {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .trend-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        margin-left: 0.5rem;
+    }
+
+    .trend-up {
+        background: #e8f8f5;
+        color: #27ae60;
+    }
+
+    .trend-down {
+        background: #fde9e9;
+        color: #e74c3c;
+    }
+
+    .category-progress {
+        margin-bottom: 1rem;
+    }
+
+    .category-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+    }
+
+    .time-filter {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .time-filter button {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 20px;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .time-filter button.active {
+        background: #3498db;
+        color: white;
+    }
+
+    .performance-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .metric-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .heatmap {
+        width: 100%;
+        height: 200px;
+        margin-bottom: 1.5rem;
+    }
+
+    .category-details {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .tab-content {
+        padding: 1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Performance Analytics</h2>
+        <div class="time-filter">
+            <button class="active">Week</button>
+            <button>Month</button>
+            <button>Year</button>
+            <button>All Time</button>
+        </div>
+    </div>
+
+    <div class="performance-metrics">
+        <div class="metric-card">
+            <div class="metric-value">{{ "{:.1f}%".format(accuracy_trend[-1]) }}</div>
+            <div class="metric-label">Current Accuracy</div>
+            {% if accuracy_trend[-1] > accuracy_trend[-2] %}
+            <div class="trend-indicator trend-up">↑ {{ "{:.1f}%".format(accuracy_trend[-1] - accuracy_trend[-2]) }}</div>
+            {% else %}
+            <div class="trend-indicator trend-down">↓ {{ "{:.1f}%".format(accuracy_trend[-2] - accuracy_trend[-1]) }}</div>
+            {% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{{ average_time }}s</div>
+            <div class="metric-label">Avg Time per Problem</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{{ problems_per_day }}</div>
+            <div class="metric-label">Problems per Day</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">{{ best_streak }}</div>
+            <div class="metric-label">Best Streak</div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#overview">Overview</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#categories">Categories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#time">Time Analysis</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#mistakes">Common Mistakes</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="overview">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5>Accuracy Over Time</h5>
+                        <canvas id="accuracyChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h5>Daily Activity</h5>
+                        <div class="heatmap" id="activityHeatmap"></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5>Category Distribution</h5>
+                        <canvas id="categoryPieChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h5>Recent Achievements</h5>
+                        <div class="achievements-list">
+                            <!-- Achievement items -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="categories">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5>Category Performance</h5>
+                        <div class="category-details">
+                            {% for category in categories %}
+                            <div class="category-progress">
+                                <div class="category-header">
+                                    <span>{{ category.name }}</span>
+                                    <span class="stat-small">{{ "{:.1f}%".format(category.accuracy) }}</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ category.accuracy }}%"
+                                         aria-valuenow="{{ category.accuracy }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <p>No categories available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5>Subcategory Breakdown</h5>
+                        <canvas id="subcategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="time">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5>Speed Trends</h5>
+                        <canvas id="speedTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5>Time Distribution</h5>
+                        <canvas id="timeDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h5>Time per Category</h5>
+                <canvas id="categoryTimeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="mistakes">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-card">
+                        <h5>Common Mistake Patterns</h5>
+                        <canvas id="mistakePatternChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-card">
+                        <h5>Most Challenging Categories</h5>
+                        <canvas id="challengingCategoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
+<script src="{{ url_for('static', filename='analytics.js') }}"></script>
+{% endblock %}
