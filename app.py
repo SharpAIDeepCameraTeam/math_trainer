@@ -13,9 +13,12 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # Database configuration
-if os.environ.get('DATABASE_URL'):
-    # Use PostgreSQL in production (Koyeb)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Handle Postgres URL format for SQLAlchemy
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
     # Use SQLite in development
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///math_trainer.db'
@@ -131,7 +134,7 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return redirect(url_for('dashboard'))
+    return render_template('dashboard.html')
 
 @app.route('/dashboard')
 def dashboard():
@@ -344,11 +347,11 @@ with app.app_context():
     db.create_all()
     
     # Initialize problem categories if empty
-    if not ProblemCategory.query.first():
-        for main_category, subcategories in PROBLEM_CATEGORIES.items():
-            parent = ProblemCategory(name=main_category)
+    if ProblemCategory.query.count() == 0:
+        for category, subcategories in PROBLEM_CATEGORIES.items():
+            parent = ProblemCategory(name=category)
             db.session.add(parent)
-            db.session.flush()  # Get the ID
+            db.session.commit()  # Commit to get parent ID
             
             for subcategory in subcategories:
                 child = ProblemCategory(name=subcategory, parent_id=parent.id)
@@ -357,4 +360,4 @@ with app.app_context():
         db.session.commit()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=8080)
