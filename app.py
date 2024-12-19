@@ -159,6 +159,10 @@ def get_history():
         'date_taken': test.date_taken.strftime('%Y-%m-%d %H:%M:%S')
     } for test in tests])
 
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+
 def save_test_history(test):
     total_time = int(time.time() - test['start_time'])
     history = TestHistory(
@@ -176,4 +180,4 @@ with app.app_context():
     db.create_all()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=False)

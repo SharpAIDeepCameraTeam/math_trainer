@@ -1,0 +1,29 @@
+name: math-trainer
+service:
+  name: web
+  ports:
+    - port: 8080
+      protocol: http
+  routes:
+    - path: /
+      protocol: http
+  healthcheck:
+    path: /health
+    port: 8080
+    initialDelay: 5s
+    interval: 30s
+    timeout: 3s
+    retries: 3
+  env:
+    - name: FLASK_APP
+      value: app.py
+    - name: FLASK_ENV
+      value: production
+  scale:
+    horizontal:
+      min: 1
+      max: 3
+      target:
+        cpu: 80
+  regions:
+    - fra

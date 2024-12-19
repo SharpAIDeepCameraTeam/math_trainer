@@ -45,6 +45,48 @@ The application will be available at `http://localhost:8000`.
 4. View your results and timing analysis
 5. (Optional) Create an account to save your progress
 
+## Deployment
+
+### Docker
+
+Build and run the Docker container locally:
+
+```bash
+docker build -t math-trainer .
+docker run -p 8080:8080 math-trainer
+```
+
+### Koyeb
+
+1. Install the Koyeb CLI:
+```bash
+curl -fsSL https://cli.koyeb.com/install.sh | bash
+```
+
+2. Login to Koyeb:
+```bash
+koyeb login
+```
+
+3. Deploy the application:
+```bash
+koyeb app init math-trainer
+```
+
+The application will be deployed and accessible through the Koyeb-provided URL.
+
+## Health Check
+
+The application includes a health check endpoint at `/health` that returns:
+```json
+{
+    "status": "healthy",
+    "timestamp": "2024-12-18T16:57:53-08:00"
+}
+```
+
+This endpoint is used by Koyeb to monitor the application's health.
+
 ## Contributing
 
 1. Fork the repository
