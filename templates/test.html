@@ -1,25 +1,178 @@
 {% extends "base.html" %}
 
+{% block styles %}
+<style>
+.circle-timer {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto;
+}
+
+.circle-timer canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.circle-timer .timer-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 100%;
+}
+
+.circle-timer .timer-text .time {
+    font-size: 3rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.circle-timer .timer-text .question {
+    font-size: 1.5rem;
+    color: #666;
+}
+
+.pulse {
+    animation: pulse-animation 0.5s ease-out;
+}
+
+@keyframes pulse-animation {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.preset-card {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.preset-card:hover {
+    transform: scale(1.02);
+}
+
+.preset-card.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-8 offset-md-2">
-            <div class="card">
+            <!-- Test Configuration -->
+            <div id="test-config" class="card mb-4">
+                <div class="card-body">
+                    <h3 class="mb-4">Configure Test</h3>
+                    
+                    <!-- Preset Tests -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-4">
+                            <div class="card preset-card h-100" data-preset="mathcounts">
+                                <div class="card-body">
+                                    <h5>MATHCOUNTS</h5>
+                                    <p class="mb-2">Sprint Round</p>
+                                    <ul class="list-unstyled">
+                                        <li>30 Questions</li>
+                                        <li>40 Minutes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card preset-card h-100" data-preset="amc8">
+                                <div class="card-body">
+                                    <h5>AMC 8</h5>
+                                    <p class="mb-2">Standard Test</p>
+                                    <ul class="list-unstyled">
+                                        <li>25 Questions</li>
+                                        <li>40 Minutes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card preset-card h-100" data-preset="mandelbrot">
+                                <div class="card-body">
+                                    <h5>Mandelbrot</h5>
+                                    <p class="mb-2">Individual Round</p>
+                                    <ul class="list-unstyled">
+                                        <li>40 Questions</li>
+                                        <li>60 Minutes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Configuration -->
+                    <div class="custom-config">
+                        <h5 class="mb-3">Custom Configuration</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Number of Questions</label>
+                                <input type="number" id="num-questions" class="form-control" value="30" min="1">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Time Limit (minutes)</label>
+                                <input type="number" id="time-limit" class="form-control" value="40" min="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button id="start-test" class="btn btn-primary btn-lg">Start Test</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Interface -->
+            <div id="test-interface" class="card" style="display: none;">
                 <div class="card-body">
                     <div id="test-container" class="text-center">
                         <div id="active-test" class="mb-4">
-                            <h3 class="mb-4">Question <span id="current-question">1</span></h3>
-                            <div class="timer-display mb-4">
-                                <div id="timer" class="display-4 mb-3">Press SPACE to start</div>
+                            <div class="circle-timer">
+                                <canvas id="timer-canvas"></canvas>
+                                <div class="timer-text">
+                                    <div class="time" id="timer">Press SPACE to start</div>
+                                    <div class="question">Question <span id="current-question">1</span></div>
+                                </div>
                             </div>
-                            <div class="text-muted mb-4">Press SPACE to record time and move to next question</div>
-                            <button id="end-test" class="btn btn-danger">
-                                <i class="bi bi-stop-circle me-2"></i>End Test
+
+                            <div id="review-buttons" class="mt-4" style="display: none;">
+                                <p class="text-muted mb-3">Review your answers before finishing</p>
+                                <button id="finish-test" class="btn btn-success">
+                                    <i class="bi bi-check-circle me-2"></i>Finish Test
+                                </button>
+                            </div>
+
+                            <button id="end-test" class="btn btn-danger mt-4">
+                                <i class="bi bi-stop-circle me-2"></i>End Test Early
                             </button>
                         </div>
                         
                         <div id="test-complete" style="display: none;">
                             <h3 class="mb-4">Test Complete!</h3>
+                            
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div class="chart-container" style="position: relative; height:300px;">
+                                        <canvas id="timeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="row justify-content-center">
                                 <div class="col-md-8">
                                     <div class="form-group mb-4">
@@ -71,6 +224,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const PROBLEM_CATEGORIES = {
     'Geometry': [
@@ -125,11 +279,162 @@ const PROBLEM_CATEGORIES = {
     ]
 };
 
+const TEST_PRESETS = {
+    mathcounts: {
+        name: 'MATHCOUNTS Sprint Round',
+        questions: 30,
+        timeLimit: 40
+    },
+    amc8: {
+        name: 'AMC 8',
+        questions: 25,
+        timeLimit: 40
+    },
+    mandelbrot: {
+        name: 'Mandelbrot Individual Round',
+        questions: 40,
+        timeLimit: 60
+    }
+};
+
 let currentQuestion = 1;
 let startTime = null;
+let questionStartTime = null;
 let questionTimes = [];
 let categories = {};
-let waitingForSpace = true;
+let canvas = document.getElementById('timer-canvas');
+let ctx = canvas.getContext('2d');
+let chart = null;
+let totalQuestions = 30;
+let timeLimit = 40;
+
+// Set canvas size
+canvas.width = 300;
+canvas.height = 300;
+
+// Handle preset selection
+document.querySelectorAll('.preset-card').forEach(card => {
+    card.addEventListener('click', () => {
+        // Remove selection from other cards
+        document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+        
+        // Select this card
+        card.classList.add('selected');
+        
+        // Update inputs with preset values
+        const preset = TEST_PRESETS[card.dataset.preset];
+        document.getElementById('num-questions').value = preset.questions;
+        document.getElementById('time-limit').value = preset.timeLimit;
+    });
+});
+
+// Handle test start
+document.getElementById('start-test').addEventListener('click', () => {
+    totalQuestions = parseInt(document.getElementById('num-questions').value);
+    timeLimit = parseInt(document.getElementById('time-limit').value);
+    
+    document.getElementById('test-config').style.display = 'none';
+    document.getElementById('test-interface').style.display = 'block';
+    
+    // Draw initial empty circle
+    drawCircle(0);
+});
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function drawCircle(percentage) {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) - 10;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw background circle
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+    
+    // Draw progress
+    if (percentage > 0) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, -Math.PI / 2, (-Math.PI / 2) + (2 * Math.PI * percentage));
+        ctx.strokeStyle = percentage <= 0.3 ? '#4CAF50' : 
+                         percentage <= 0.6 ? '#FFC107' : '#F44336';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+    }
+}
+
+function pulseTimer() {
+    const timerText = document.querySelector('.timer-text');
+    timerText.classList.remove('pulse');
+    void timerText.offsetWidth; // Trigger reflow
+    timerText.classList.add('pulse');
+}
+
+function updateTimer() {
+    if (!startTime) return;
+    
+    const now = Date.now();
+    const elapsed = (now - startTime) / 1000;
+    document.getElementById('timer').textContent = formatTime(elapsed);
+    
+    // Calculate percentage based on time limit
+    const percentage = elapsed / (timeLimit * 60);
+    drawCircle(percentage);
+    
+    requestAnimationFrame(updateTimer);
+}
+
+function initializeChart() {
+    const ctx = document.getElementById('timeChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Time per Problem',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Time (seconds)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Problem Number'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateChart() {
+    if (!chart) return;
+    
+    chart.data.labels = questionTimes.map((_, i) => `#${i + 1}`);
+    chart.data.datasets[0].data = questionTimes;
+    chart.update();
+}
 
 // Initialize categories in modal
 const mainCategorySelect = document.getElementById('mainCategory');
@@ -155,57 +460,67 @@ mainCategorySelect.addEventListener('change', () => {
     }
 });
 
-// Handle spacebar for timing
+// Handle spacebar
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && document.getElementById('active-test').style.display !== 'none') {
+    if (e.code === 'Space' && document.getElementById('test-interface').style.display !== 'none' && 
+        document.getElementById('active-test').style.display !== 'none') {
         e.preventDefault();
         
-        if (waitingForSpace) {
-            // Start timing
+        if (!startTime) {
+            // First press - start the timer
             startTime = Date.now();
-            waitingForSpace = false;
-            document.getElementById('timer').textContent = '0.0s';
-            startTimer();
+            questionStartTime = startTime;
+            updateTimer();
         } else {
-            // Record time and move to next question
-            const timeSpent = (Date.now() - startTime) / 1000;
+            // Record time for current question
+            const timeSpent = (Date.now() - questionStartTime) / 1000;
             questionTimes.push(timeSpent);
-            currentQuestion++;
-            document.getElementById('current-question').textContent = currentQuestion;
-            waitingForSpace = true;
-            startTime = null;
-            document.getElementById('timer').textContent = 'Press SPACE to start';
+            
+            if (currentQuestion < totalQuestions) {
+                // Start timing next question
+                currentQuestion++;
+                document.getElementById('current-question').textContent = currentQuestion;
+                questionStartTime = Date.now();
+                
+                // Pulse the timer
+                pulseTimer();
+            } else {
+                // Show review state
+                document.getElementById('current-question').textContent = 'Review';
+                document.getElementById('review-buttons').style.display = 'block';
+                document.getElementById('end-test').style.display = 'none';
+            }
         }
     }
 });
 
-function startTimer() {
-    if (!startTime || waitingForSpace) return;
-    
-    const updateTimer = () => {
-        if (!startTime || waitingForSpace) return;
-        const elapsed = (Date.now() - startTime) / 1000;
-        document.getElementById('timer').textContent = elapsed.toFixed(1) + 's';
-        requestAnimationFrame(updateTimer);
-    };
-    
-    requestAnimationFrame(updateTimer);
-}
+document.getElementById('finish-test').addEventListener('click', () => {
+    finishTest();
+});
 
 document.getElementById('end-test').addEventListener('click', () => {
-    if (startTime) {
-        const timeSpent = (Date.now() - startTime) / 1000;
+    finishTest();
+});
+
+function finishTest() {
+    // Record time for last question if not in review mode
+    if (startTime && questionStartTime && currentQuestion <= totalQuestions) {
+        const timeSpent = (Date.now() - questionStartTime) / 1000;
         questionTimes.push(timeSpent);
     }
     
     document.getElementById('active-test').style.display = 'none';
     document.getElementById('test-complete').style.display = 'block';
-});
+    
+    // Initialize and update the final time chart
+    initializeChart();
+    updateChart();
+}
 
 document.getElementById('wrong-questions').addEventListener('change', (e) => {
     const wrongNums = e.target.value.split(',')
         .map(n => parseInt(n.trim()))
-        .filter(n => !isNaN(n) && n > 0 && n <= currentQuestion);
+        .filter(n => !isNaN(n) && n > 0 && n <= totalQuestions);
     
     const wrongAnswersList = document.getElementById('wrong-answers-list');
     wrongAnswersList.innerHTML = wrongNums.map((questionNum, index) => `
@@ -244,10 +559,11 @@ function showCategoryModal(questionNum) {
 document.getElementById('submit-test').addEventListener('click', () => {
     const wrongNums = document.getElementById('wrong-questions').value.split(',')
         .map(n => parseInt(n.trim()))
-        .filter(n => !isNaN(n) && n > 0 && n <= currentQuestion);
+        .filter(n => !isNaN(n) && n > 0 && n <= totalQuestions);
 
     const testData = {
-        totalQuestions: currentQuestion - 1,
+        totalQuestions: totalQuestions,
+        timeLimit: timeLimit,
         times: questionTimes,
         wrongQuestions: wrongNums,
         categories: categories

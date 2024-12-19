@@ -145,9 +145,14 @@
                 <i class="bi bi-gear"></i> Settings
             </a>
             {% if current_user.is_authenticated %}
-            <a class="nav-link" href="{{ url_for('logout') }}">
-                <i class="bi bi-box-arrow-right"></i> Logout
-            </a>
+            <div class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                </ul>
+            </div>
             {% else %}
             <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">
                 <i class="bi bi-box-arrow-in-right"></i> Login
@@ -157,34 +162,28 @@
     </div>
 
     {% if not current_user.is_authenticated %}
-    <div class="alert alert-info alert-dismissible fade show m-3" role="alert">
+    <div class="alert alert-info text-center mb-0 rounded-0 alert-dismissible fade show" role="alert">
         <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="bi bi-info-circle me-2"></i>
-                    <span>You're using Math Trainer as a guest. <a href="{{ url_for('signup') }}" class="alert-link">Sign up</a> or <a href="{{ url_for('login') }}" class="alert-link">log in</a> to save your progress!</span>
+            <div class="row align-items-center">
+                <div class="col">
+                    <span>You're using Math Trainer as a guest. <a href="#" data-bs-toggle="modal" data-bs-target="#signupModal" class="alert-link">Sign up</a> or <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="alert-link">log in</a> to save your progress!</span>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
 
-    {% if session.get('show_banner') %}
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="container mt-4">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                {% set _ = session.pop('show_banner', None) %}
-            {% endif %}
-        {% endwith %}
-    {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
     <div class="main-content">
         {% block content %}{% endblock %}
@@ -223,42 +222,30 @@
 
     <!-- Login Modal -->
     <div class="modal fade" id="loginModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h3 class="modal-title">Sign In</h3>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row">
-                        <div class="col-md-6 border-end">
-                            <h4 class="mb-4">Welcome Back!</h4>
-                            <form method="POST" action="{{ url_for('login') }}">
-                                <div class="mb-4">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" class="form-control form-control-lg" name="username" required>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control form-control-lg" name="password" required>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Back</button>
-                                    <button type="submit" class="btn btn-primary btn-lg flex-grow-1">Sign In</button>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="col-md-6">
-                            <h4 class="mb-4">New Here?</h4>
-                            <p class="lead">Join Math Trainer to:</p>
-                            <ul class="list-unstyled">
-                                <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Practice with real competition problems</li>
-                                <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Track your progress over time</li>
-                                <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Get detailed performance analytics</li>
-                                <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Join a community of math enthusiasts</li>
-                            </ul>
-                            <div class="d-grid">
-                                <button class="btn btn-outline-primary btn-lg" onclick="$('#loginModal').modal('hide')" data-bs-toggle="modal" data-bs-target="#signupModal">Create Account</button>
+                <div class="modal-body">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-12">
+                                <form method="POST" action="{{ url_for('login_modal') }}">
+                                    <div class="mb-3">
+                                        <label for="username" class="form-label">Username</label>
+                                        <input type="text" class="form-control form-control-lg" id="username" name="username" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="password" class="form-label">Password</label>
+                                        <input type="password" class="form-control form-control-lg" id="password" name="password" required>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                                        <button class="btn btn-outline-primary btn-lg" onclick="$('#loginModal').modal('hide')" data-bs-toggle="modal" data-bs-target="#signupModal">Create Account</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -269,60 +256,71 @@
 
     <!-- Signup Modal -->
     <div class="modal fade" id="signupModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h3 class="modal-title">Create Account</h3>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <div class="row">
-                        <div class="col-md-6 border-end">
-                            <h4 class="mb-4">Sign Up</h4>
-                            <form method="POST" action="{{ url_for('signup') }}">
-                                <div class="mb-4">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" class="form-control form-control-lg" name="username" required>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control form-control-lg" name="password" required>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="form-label">Confirm Password</label>
-                                    <input type="password" class="form-control form-control-lg" name="confirm_password" required>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-secondary btn-lg" onclick="$('#signupModal').modal('hide'); $('#loginModal').modal('show')">Back</button>
-                                    <button type="submit" class="btn btn-success btn-lg flex-grow-1">Create Account</button>
-                                </div>
-                            </form>
+                <div class="modal-body">
+                    <form method="POST" action="{{ url_for('signup') }}" id="signup-form">
+                        <div class="mb-3">
+                            <label for="signup-username" class="form-label">Username</label>
+                            <input type="text" class="form-control form-control-lg" id="signup-username" name="username" 
+                                required minlength="3" pattern="[a-zA-Z0-9_]+" 
+                                title="Username must be at least 3 characters long and can only contain letters, numbers, and underscores">
+                            <div class="form-text">Must be at least 3 characters long and can only contain letters, numbers, and underscores.</div>
                         </div>
-                        <div class="col-md-6">
-                            <h4 class="mb-4">Why Join Math Trainer?</h4>
-                            <p class="lead mb-4">Get ready for math competitions with our comprehensive training platform.</p>
-                            <div class="features">
-                                <div class="mb-3">
-                                    <h5><i class="bi bi-trophy-fill text-warning me-2"></i>Competition Practice</h5>
-                                    <p>Train with real problems from MathCounts, AMC, and more.</p>
-                                </div>
-                                <div class="mb-3">
-                                    <h5><i class="bi bi-graph-up text-primary me-2"></i>Progress Tracking</h5>
-                                    <p>Monitor your improvement with detailed statistics.</p>
-                                </div>
-                                <div class="mb-3">
-                                    <h5><i class="bi bi-people-fill text-success me-2"></i>Community</h5>
-                                    <p>Join other students preparing for math competitions.</p>
-                                </div>
-                            </div>
+                        <div class="mb-3">
+                            <label for="signup-password" class="form-label">Password</label>
+                            <input type="password" class="form-control form-control-lg" id="signup-password" name="password" 
+                                required minlength="8"
+                                title="Password must be at least 8 characters long">
+                            <div class="form-text">Must be at least 8 characters long.</div>
                         </div>
-                    </div>
+                        <div class="mb-3">
+                            <label for="confirm-password" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control form-control-lg" id="confirm-password" name="confirm_password" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}{% endblock %}
+    {% block scripts %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Password confirmation validation
+        const signupForm = document.getElementById('signup-form');
+        const password = document.getElementById('signup-password');
+        const confirmPassword = document.getElementById('confirm-password');
+
+        function validatePassword() {
+            if (password.value !== confirmPassword.value) {
+                confirmPassword.setCustomValidity("Passwords don't match");
+            } else {
+                confirmPassword.setCustomValidity('');
+            }
+        }
+
+        password.addEventListener('change', validatePassword);
+        confirmPassword.addEventListener('keyup', validatePassword);
+
+        // Close modals when redirected
+        if (document.querySelector('.alert')) {
+            const loginModal = document.getElementById('loginModal');
+            const signupModal = document.getElementById('signupModal');
+            if (loginModal) bootstrap.Modal.getInstance(loginModal)?.hide();
+            if (signupModal) bootstrap.Modal.getInstance(signupModal)?.hide();
+        }
+    });
+    </script>
+    {% endblock %}
 </body>
 </html>
