@@ -29,7 +29,6 @@ login_manager.login_view = 'login'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     tests = db.relationship('TestHistory', backref='user', lazy=True)
 
@@ -209,31 +208,29 @@ def signup():
         username = request.form.get('username')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        email = request.form.get('email')
 
-        # Validation
-        error = None
-        if len(password) < 4:
-            error = 'Password must be at least 4 characters long.'
-        elif password != confirm_password:
-            error = 'Passwords do not match.'
-        elif User.query.filter_by(username=username).first():
-            error = 'Username already exists.'
-        
-        if error is None:
-            user = User(
-                username=username,
-                email=email
-            )
-            user.set_password(password)
-            db.session.add(user)
-            db.session.commit()
-            flash('Account created successfully! Please log in.', 'success')
-            return redirect(url_for('login'))
-        
-        flash(error, 'error')
-    
-    return render_template('signup.html')
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists', 'error')
+            return redirect(url_for('index'))
+
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return redirect(url_for('index'))
+
+        if len(password) < 6:
+            flash('Password must be at least 6 characters long', 'error')
+            return redirect(url_for('index'))
+
+        user = User(username=username)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        login_user(user)
+        flash('Account created successfully!', 'success')
+        return redirect(url_for('index'))
+
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 @login_required
