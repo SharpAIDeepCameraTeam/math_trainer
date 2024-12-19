@@ -150,6 +150,12 @@
                                 </div>
                             </div>
 
+                            <div class="mt-4">
+                                <div class="chart-container" style="position: relative; height: 200px;">
+                                    <canvas id="timeChart"></canvas>
+                                </div>
+                            </div>
+
                             <div id="review-buttons" class="mt-4" style="display: none;">
                                 <p class="text-muted mb-3">Review your answers before finishing</p>
                                 <button id="finish-test" class="btn btn-success">
@@ -168,7 +174,7 @@
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <div class="chart-container" style="position: relative; height:300px;">
-                                        <canvas id="timeChart"></canvas>
+                                        <canvas id="finalTimeChart"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -402,19 +408,25 @@ function initializeChart() {
             datasets: [{
                 label: 'Time per Problem',
                 data: [],
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 750,
+                easing: 'easeInOutQuart'
+            },
             scales: {
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Time (seconds)'
+                        text: 'Seconds'
                     }
                 },
                 x: {
@@ -422,6 +434,11 @@ function initializeChart() {
                         display: true,
                         text: 'Problem Number'
                     }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
                 }
             }
         }
@@ -431,34 +448,13 @@ function initializeChart() {
 function updateChart() {
     if (!chart) return;
     
-    chart.data.labels = questionTimes.map((_, i) => `#${i + 1}`);
-    chart.data.datasets[0].data = questionTimes;
-    chart.update();
+    const labels = questionTimes.map((_, i) => `#${i + 1}`);
+    const data = questionTimes;
+    
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.update('show');
 }
-
-// Initialize categories in modal
-const mainCategorySelect = document.getElementById('mainCategory');
-const subCategorySelect = document.getElementById('subCategory');
-
-Object.keys(PROBLEM_CATEGORIES).forEach(category => {
-    const option = document.createElement('option');
-    option.value = category;
-    option.textContent = category;
-    mainCategorySelect.appendChild(option);
-});
-
-mainCategorySelect.addEventListener('change', () => {
-    const category = mainCategorySelect.value;
-    subCategorySelect.innerHTML = '<option value="">Select subcategory...</option>';
-    if (category && PROBLEM_CATEGORIES[category]) {
-        PROBLEM_CATEGORIES[category].forEach(sub => {
-            const option = document.createElement('option');
-            option.value = sub;
-            option.textContent = sub;
-            subCategorySelect.appendChild(option);
-        });
-    }
-});
 
 // Handle spacebar
 document.addEventListener('keydown', (e) => {
@@ -471,6 +467,8 @@ document.addEventListener('keydown', (e) => {
             startTime = Date.now();
             questionStartTime = startTime;
             updateTimer();
+            // Initialize chart
+            initializeChart();
         } else {
             // Record time for current question
             const timeSpent = (Date.now() - questionStartTime) / 1000;
@@ -481,6 +479,9 @@ document.addEventListener('keydown', (e) => {
                 currentQuestion++;
                 document.getElementById('current-question').textContent = currentQuestion;
                 questionStartTime = Date.now();
+                
+                // Update chart with new data
+                updateChart();
                 
                 // Pulse the timer
                 pulseTimer();
@@ -513,8 +514,49 @@ function finishTest() {
     document.getElementById('test-complete').style.display = 'block';
     
     // Initialize and update the final time chart
-    initializeChart();
-    updateChart();
+    const ctx = document.getElementById('finalTimeChart').getContext('2d');
+    const finalChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: questionTimes.map((_, i) => `#${i + 1}`),
+            datasets: [{
+                label: 'Time per Problem',
+                data: questionTimes,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 750,
+                easing: 'easeInOutQuart'
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Seconds'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Problem Number'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
 }
 
 document.getElementById('wrong-questions').addEventListener('change', (e) => {
