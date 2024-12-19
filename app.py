@@ -8,9 +8,15 @@ import os
 import json
 import logging
 from collections import defaultdict
+import hashlib
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Add MD5 filter to Jinja2
+@app.template_filter('md5')
+def md5_filter(s):
+    return hashlib.md5(s.encode()).hexdigest()
 
 # Database configuration
 database_url = os.environ.get('DATABASE_URL')

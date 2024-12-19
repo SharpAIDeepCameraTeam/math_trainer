@@ -147,7 +147,9 @@
             {% if current_user.is_authenticated %}
             <div class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                    <img src="https://www.gravatar.com/avatar/{{ current_user.username|lower|md5 }}?d=identicon&s=32" 
+                        alt="Profile" class="rounded-circle me-1" style="width: 32px; height: 32px;">
+                    {{ current_user.username }}
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
