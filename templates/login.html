@@ -1,158 +1,161 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Trainer - Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
-    <style>
-        body {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 1rem;
-        }
+{% extends "base.html" %}
 
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 2.5rem;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
+{% block title %}Sign In{% endblock %}
 
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
+{% block additional_styles %}
+<style>
+    body {
+        min-height: 100vh;
+        margin: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-        .login-header h2 {
-            color: #2d3748;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
+    .login-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2.5rem;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        margin: 2rem;
+    }
 
-        .login-header p {
-            color: #718096;
-            font-size: 1rem;
-        }
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
+    .login-header h2 {
+        color: #2d3748;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #4a5568;
-            font-weight: 500;
-        }
+    .login-header p {
+        color: #718096;
+        font-size: 1rem;
+    }
 
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.2s;
-        }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
 
-        .form-group input:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #4a5568;
+        font-weight: 500;
+    }
 
-        .login-button {
-            width: 100%;
-            padding: 0.75rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
 
-        .login-button:hover {
-            background: #5a67d8;
-            transform: translateY(-1px);
-        }
+    .form-group input:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
 
-        .login-footer {
-            text-align: center;
-            margin-top: 1.5rem;
-        }
+    .login-button {
+        width: 100%;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
 
-        .login-footer a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
+    .login-button:hover {
+        background: #5a67d8;
+        transform: translateY(-1px);
+    }
 
-        .login-footer a:hover {
-            text-decoration: underline;
-        }
+    .login-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+    }
 
-        .alert {
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
-            font-weight: 500;
-        }
+    .login-footer a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+    }
 
-        .alert-error {
-            background: #fed7d7;
-            color: #c53030;
-            border: 2px solid #feb2b2;
-        }
+    .login-footer a:hover {
+        text-decoration: underline;
+    }
 
-        .alert-info {
-            background: #e6fffa;
-            color: #234e52;
-            border: 2px solid #b2f5ea;
-        }
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    .alert {
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        font-weight: 500;
+    }
 
-        <div class="login-header">
-            <h2>Welcome Back</h2>
-            <p>Track your math practice progress</p>
-        </div>
+    .alert-error {
+        background: #fed7d7;
+        color: #c53030;
+        border: 2px solid #feb2b2;
+    }
 
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus>
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit" class="login-button">Sign In</button>
-        </form>
+    .alert-info {
+        background: #e6fffa;
+        color: #234e52;
+        border: 2px solid #b2f5ea;
+    }
 
-        <div class="login-footer">
-            <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
-        </div>
+    .main-content {
+        padding: 0;
+        margin: 0;
+        min-height: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <h2>Welcome Back</h2>
+        <p>Track your math practice progress</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required autofocus>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="login-button">Sign In</button>
+    </form>
+
+    <div class="login-footer">
+        <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
+    </div>
+</div>
+{% endblock %}

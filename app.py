@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 import logging
@@ -129,13 +129,91 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    # Mock data for dashboard - replace with real data from database
-    dashboard_data = {
-        'overall_accuracy': 85.5,  # percentage
-        'current_streak': 5,       # days
-        'total_problems': 150      # total problems solved
-    }
-    return render_template('dashboard.html', **dashboard_data)
+    if not current_user.is_authenticated:
+        return render_template('dashboard.html')
+
+    # Get the last 7 days of practice data
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=6)
+    
+    # Get practice sessions in date range
+    practice_sessions = TestHistory.query.filter(
+        TestHistory.user_id == current_user.id,
+        TestHistory.date_taken >= start_date,
+        TestHistory.date_taken <= end_date
+    ).all()
+
+    # Prepare daily practice data
+    dates = []
+    practice_minutes = []
+    current_date = start_date
+    
+    while current_date <= end_date:
+        dates.append(current_date.strftime('%Y-%m-%d'))
+        day_sessions = [s for s in practice_sessions if s.date_taken.date() == current_date.date()]
+        total_minutes = sum(s.total_time / 60 for s in day_sessions)
+        practice_minutes.append(round(total_minutes))
+        current_date += timedelta(days=1)
+
+    # Calculate current streak
+    current_streak = 0
+    check_date = end_date.date()
+    while True:
+        day_sessions = [s for s in practice_sessions if s.date_taken.date() == check_date]
+        if not day_sessions:
+            break
+        current_streak += 1
+        check_date -= timedelta(days=1)
+
+    # Get today's stats
+    today_sessions = [s for s in practice_sessions if s.date_taken.date() == end_date.date()]
+    today_minutes = sum(s.total_time / 60 for s in today_sessions)
+    problems_today = sum(s.total_questions for s in today_sessions)
+
+    # Calculate average accuracy
+    if today_sessions:
+        correct_problems = sum(s.total_questions - len(json.loads(s.wrong_questions or '[]')) for s in today_sessions)
+        total_problems = sum(s.total_questions for s in today_sessions)
+        avg_accuracy = (correct_problems / total_problems * 100) if total_problems > 0 else 0
+    else:
+        avg_accuracy = 0
+
+    # Get category performance
+    category_stats = {}
+    for session in practice_sessions:
+        wrong_questions = json.loads(session.wrong_questions or '[]')
+        for question in wrong_questions:
+            category = question.get('category', 'Uncategorized')
+            if category not in category_stats:
+                category_stats[category] = {'correct': 0, 'total': 0}
+            category_stats[category]['total'] += 1
+        total_questions = session.total_questions
+        for category in category_stats:
+            category_stats[category]['total'] += total_questions / len(category_stats)
+
+    category_names = list(category_stats.keys())
+    category_accuracy = [
+        round((1 - stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0, 1)
+        for stats in category_stats.values()
+    ]
+
+    # Get recent activities
+    recent_activities = TestHistory.query.filter_by(user_id=current_user.id)\
+        .order_by(TestHistory.date_taken.desc())\
+        .limit(5)\
+        .all()
+
+    return render_template('dashboard.html',
+        dates=dates,
+        practice_minutes=practice_minutes,
+        current_streak=current_streak,
+        today_minutes=round(today_minutes),
+        problems_today=problems_today,
+        avg_accuracy=avg_accuracy,
+        category_names=category_names,
+        category_accuracy=category_accuracy,
+        recent_activities=recent_activities
+    )
 
 @app.route('/train')
 @login_required

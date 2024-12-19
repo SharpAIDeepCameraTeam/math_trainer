@@ -5,136 +5,182 @@
 {% block additional_styles %}
 <style>
     .dashboard-container {
-        max-width: 1200px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        padding: 2rem 0;
     }
 
-    .stat-card {
-        background: white;
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        text-align: center;
-        transition: transform 0.2s ease;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .big-number {
-        font-size: 4rem;
-        font-weight: bold;
-        color: #2c3e50;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-label {
-        color: #6c757d;
-        text-transform: uppercase;
-        font-size: 1rem;
-        letter-spacing: 1px;
-    }
-
-    .streak-flame {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-        color: #e74c3c;
-    }
-
-    .quick-actions {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .action-card {
+    .stats-card {
         background: white;
         border-radius: 15px;
         padding: 1.5rem;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        transition: all 0.2s ease;
-        cursor: pointer;
-        text-decoration: none;
-        color: inherit;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        height: 100%;
     }
 
-    .action-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    }
-
-    .action-icon {
-        font-size: 2rem;
+    .stats-card h3 {
+        color: #2d3748;
         margin-bottom: 1rem;
+        font-size: 1.25rem;
     }
 
-    .nav-analytics {
-        display: inline-block;
-        margin-top: 1rem;
-        padding: 0.5rem 1rem;
-        background: #3498db;
-        color: white;
-        text-decoration: none;
-        border-radius: 5px;
-        transition: background 0.2s ease;
+    .streak-chart {
+        height: 300px;
     }
 
-    .nav-analytics:hover {
-        background: #2980b9;
+    .date-label {
+        font-size: 0.875rem;
+        color: #718096;
+        text-align: center;
+        margin-top: 0.5rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="big-number">{{ "{:.1f}%".format(overall_accuracy) }}</div>
-                <div class="stat-label">Overall Accuracy</div>
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="mb-4">Your Progress</h2>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="streak-flame">🔥</div>
-                <div class="big-number">{{ current_streak }}</div>
-                <div class="stat-label">Day Streak</div>
+        
+        <div class="row g-4">
+            <!-- Daily Practice Time -->
+            <div class="col-md-8">
+                <div class="stats-card">
+                    <h3>Daily Practice Time</h3>
+                    <canvas id="practiceTimeChart" class="streak-chart"></canvas>
+                    <div class="date-label">Last 7 days</div>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="stat-card">
-                <div class="big-number">{{ total_problems }}</div>
-                <div class="stat-label">Total Problems Solved</div>
-            </div>
-        </div>
-    </div>
 
-    <div class="quick-actions">
-        <a href="{{ url_for('train') }}" class="action-card">
-            <div class="action-icon">📝</div>
-            <h3>Start New Test</h3>
-            <p>Practice with a new set of problems</p>
-        </a>
-        <a href="{{ url_for('analytics') }}" class="action-card">
-            <div class="action-icon">📊</div>
-            <h3>View Analytics</h3>
-            <p>See detailed performance insights</p>
-        </a>
-        <a href="#" class="action-card" data-bs-toggle="modal" data-bs-target="#settingsModal">
-            <div class="action-icon">⚙️</div>
-            <h3>Settings</h3>
-            <p>Customize your training experience</p>
-        </a>
+            <!-- Current Stats -->
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <h3>Current Stats</h3>
+                    <div class="mb-3">
+                        <strong>Today's Practice:</strong>
+                        <span id="todayPractice">{{ today_minutes }} minutes</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Current Streak:</strong>
+                        <span id="currentStreak">{{ current_streak }} days</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Problems Today:</strong>
+                        <span id="problemsToday">{{ problems_today }}</span>
+                    </div>
+                    <div>
+                        <strong>Average Accuracy:</strong>
+                        <span id="avgAccuracy">{{ "%.1f"|format(avg_accuracy|default(0)) }}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Performance -->
+            <div class="col-md-6">
+                <div class="stats-card">
+                    <h3>Category Performance</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="col-md-6">
+                <div class="stats-card">
+                    <h3>Recent Activity</h3>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Score</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for activity in recent_activities %}
+                                <tr>
+                                    <td>{{ activity.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ activity.test_type }}</td>
+                                    <td>{{ activity.score }}%</td>
+                                    <td>{{ activity.time }} min</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Practice Time Chart
+    const practiceCtx = document.getElementById('practiceTimeChart').getContext('2d');
+    new Chart(practiceCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ dates|tojson }},
+            datasets: [{
+                label: 'Minutes Practiced',
+                data: {{ practice_minutes|tojson }},
+                backgroundColor: '#667eea',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Minutes'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Category Performance Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'radar',
+        data: {
+            labels: {{ category_names|tojson }},
+            datasets: [{
+                label: 'Accuracy',
+                data: {{ category_accuracy|tojson }},
+                backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                borderColor: '#667eea',
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: '#667eea'
+            }]
+        },
+        options: {
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

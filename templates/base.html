@@ -157,16 +157,16 @@
     </div>
 
     {% if not current_user.is_authenticated %}
-    <div class="not-logged-in-banner" style="background-color: #fff3cd; border-color: #ffeeba; color: #856404; padding: 1rem 0;">
-        <div class="container">
-            <div class="alert alert-warning mb-0 d-flex justify-content-between align-items-center">
-                <div>
+    <div class="not-logged-in-banner position-fixed w-100" style="top: 0; z-index: 1030; background: linear-gradient(to right, #ffc107, #ffb300);">
+        <div class="container py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    <strong>Not logged in!</strong> Your progress won't be saved.
-                    <a href="{{ url_for('login') }}" class="alert-link">Sign in</a> or
-                    <a href="{{ url_for('signup') }}" class="alert-link">create an account</a> to track your progress.
+                    <span><strong>Not logged in!</strong> Your progress won't be saved.
+                    <a href="{{ url_for('login') }}" class="text-dark"><u>Sign in</u></a> or
+                    <a href="{{ url_for('signup') }}" class="text-dark"><u>create an account</u></a> to track your progress.</span>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" onclick="this.parentElement.parentElement.parentElement.style.display='none'" aria-label="Close"></button>
             </div>
         </div>
     </div>
