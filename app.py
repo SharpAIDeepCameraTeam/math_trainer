@@ -35,7 +35,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     tests = db.relationship('TestHistory', backref='user', lazy=True)
 
     def set_password(self, password):
@@ -43,6 +43,13 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 class TestHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -390,20 +397,28 @@ def get_analytics_data(user_id):
     }
 
 with app.app_context():
-    db.create_all()
-    
-    # Initialize problem categories if empty
-    if ProblemCategory.query.count() == 0:
-        for category, subcategories in PROBLEM_CATEGORIES.items():
-            parent = ProblemCategory(name=category)
-            db.session.add(parent)
-            db.session.commit()  # Commit to get parent ID
-            
-            for subcategory in subcategories:
-                child = ProblemCategory(name=subcategory, parent_id=parent.id)
-                db.session.add(child)
+    try:
+        # Drop all tables
+        db.drop_all()
+        # Create all tables
+        db.create_all()
         
-        db.session.commit()
+        # Initialize problem categories if empty
+        if not ProblemCategory.query.first():
+            for main_category, subcategories in PROBLEM_CATEGORIES.items():
+                main_cat = ProblemCategory(name=main_category)
+                db.session.add(main_cat)
+                db.session.commit()
+                
+                for sub in subcategories:
+                    sub_cat = ProblemCategory(name=sub, parent_id=main_cat.id)
+                    db.session.add(sub_cat)
+                
+            db.session.commit()
+            
+        print("Database initialized successfully!")
+    except Exception as e:
+        print(f"Error initializing database: {str(e)}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
