@@ -292,7 +292,7 @@ def logout():
 
 @app.route('/health')
 def health_check():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+    return jsonify({"status": "healthy"}), 200
 
 def get_analytics_data(user_id):
     test_history = TestHistory.query.filter_by(user_id=user_id).all()
