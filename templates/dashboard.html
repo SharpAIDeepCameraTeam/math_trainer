@@ -12,6 +12,10 @@
         <div class="row mb-4">
             <div class="col-12">
                 <h2 class="mb-4">Your Progress</h2>
+                <div class="mb-4">
+                    <a href="{{ url_for('test_interface') }}" class="btn btn-primary me-2">Start New Test</a>
+                    <a href="{{ url_for('train') }}" class="btn btn-outline-primary">Practice Mode</a>
+                </div>
             </div>
         </div>
         
@@ -31,19 +35,19 @@
                     <h3>Current Stats</h3>
                     <div class="mb-3">
                         <strong>Today's Practice:</strong>
-                        <span id="todayPractice"></span>
+                        <span id="todayPractice">0 minutes</span>
                     </div>
                     <div class="mb-3">
                         <strong>Current Streak:</strong>
-                        <span id="currentStreak"></span>
+                        <span id="currentStreak">0 days</span>
                     </div>
                     <div class="mb-3">
                         <strong>Problems Today:</strong>
-                        <span id="problemsToday"></span>
+                        <span id="problemsToday">0</span>
                     </div>
                     <div>
                         <strong>Average Accuracy:</strong>
-                        <span id="avgAccuracy"></span>
+                        <span id="avgAccuracy">0%</span>
                     </div>
                 </div>
             </div>
@@ -68,9 +72,13 @@
                                     <th>Type</th>
                                     <th>Score</th>
                                     <th>Time</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="recent-activity-body">
+                                <tr class="no-data">
+                                    <td colspan="5" class="text-center">No recent activity</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -82,6 +90,9 @@
                 <div class="test-summary">
                     <h3 class="mb-4">Past Tests Summary</h3>
                     <div class="test-tabs" id="test-tabs">
+                        <div class="no-data text-center p-4">
+                            No past tests available
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,12 +106,16 @@
 <script src="{{ url_for('static', filename='js/dashboard-init.js') }}"></script>
 <script>
 // Fetch dashboard data and initialize charts
-fetch('/dashboard/data')
+fetch('/api/dashboard-data')
     .then(response => response.json())
     .then(data => {
         window.dashboardData = data;
         initializeDashboard();
     })
-    .catch(error => console.error('Error loading dashboard data:', error));
+    .catch(error => {
+        console.error('Error loading dashboard data:', error);
+        // Show empty state gracefully
+        document.querySelectorAll('.no-data').forEach(el => el.style.display = 'block');
+    });
 </script>
 {% endblock %}

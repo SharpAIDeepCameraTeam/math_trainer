@@ -72,19 +72,37 @@ const dashboardConfig = {
 
 // Function to update stats
 function updateStats(data) {
-    document.getElementById('todayPractice').textContent = data.practice.minutes[data.practice.minutes.length - 1] + ' minutes';
-    document.getElementById('avgAccuracy').textContent = data.category.accuracy[0].toFixed(1) + '%';
+    const todayMinutes = data.practice?.minutes?.[data.practice.minutes.length - 1] || 0;
+    const avgAccuracy = data.category?.accuracy?.[0] || 0;
+    const streak = data.practice?.streak || 0;
+    const problemsToday = data.practice?.problems_today || 0;
+
+    document.getElementById('todayPractice').textContent = todayMinutes + ' minutes';
+    document.getElementById('currentStreak').textContent = streak + ' days';
+    document.getElementById('problemsToday').textContent = problemsToday;
+    document.getElementById('avgAccuracy').textContent = avgAccuracy.toFixed(1) + '%';
 }
 
 // Function to update recent activity
 function updateRecentActivity(data) {
     const tbody = document.getElementById('recent-activity-body');
+    if (!data.tests || data.tests.length === 0) {
+        tbody.innerHTML = `
+            <tr class="no-data">
+                <td colspan="5" class="text-center">No recent activity</td>
+            </tr>`;
+        return;
+    }
+
     tbody.innerHTML = data.tests.map(test => `
         <tr>
             <td>${test.date}</td>
             <td>${test.test_type}</td>
             <td>${test.accuracy.toFixed(1)}%</td>
             <td>${test.time} min</td>
+            <td>
+                <a href="/results/${test.id}" class="btn btn-sm btn-outline-primary">View</a>
+            </td>
         </tr>
     `).join('');
 }
@@ -92,6 +110,14 @@ function updateRecentActivity(data) {
 // Function to update test tabs
 function updateTestTabs(data) {
     const container = document.getElementById('test-tabs');
+    if (!data.tests || data.tests.length === 0) {
+        container.innerHTML = `
+            <div class="no-data text-center p-4">
+                No past tests available
+            </div>`;
+        return;
+    }
+
     container.innerHTML = data.tests.map((test, index) => `
         <div class="test-tab">
             <h4>${test.date} - ${test.test_type}</h4>
@@ -117,13 +143,35 @@ function updateTestTabs(data) {
             <a href="/results/${test.id}" class="view-details">View Details →</a>
         </div>
     `).join('');
+
+    // Initialize mini charts
+    data.tests.forEach((test, index) => {
+        const ctx = document.getElementById(`testChart${index + 1}`);
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: test.question_numbers,
+                    datasets: [{
+                        label: 'Time per Question',
+                        data: test.question_times,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: dashboardConfig.test.options.options
+            });
+        }
+    });
 }
 
 // Function to initialize charts
 function initializeCharts(data) {
     // Practice Time Chart
     const practiceCtx = document.getElementById('practiceTimeChart');
-    if (practiceCtx) {
+    if (practiceCtx && data.practice?.dates) {
         new Chart(practiceCtx, {
             type: 'bar',
             data: {
@@ -135,30 +183,13 @@ function initializeCharts(data) {
                     borderRadius: 5
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Minutes'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
+            options: dashboardConfig.practice.options.options
         });
     }
 
     // Category Performance Chart
     const categoryCtx = document.getElementById('categoryChart');
-    if (categoryCtx) {
+    if (categoryCtx && data.category?.names) {
         new Chart(categoryCtx, {
             type: 'radar',
             data: {
@@ -174,85 +205,27 @@ function initializeCharts(data) {
                     pointHoverBorderColor: '#667eea'
                 }]
             },
-            options: {
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
+            options: dashboardConfig.category.options.options
         });
     }
-
-    // Past Tests Charts
-    data.tests.forEach((test, index) => {
-        const testCtx = document.getElementById(`testChart${index + 1}`);
-        if (testCtx) {
-            new Chart(testCtx, {
-                type: 'line',
-                data: {
-                    labels: test.question_numbers,
-                    datasets: [{
-                        label: 'Time per Question',
-                        data: test.question_times,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Seconds'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Question'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
-    });
 }
 
 // Function to initialize dashboard
 function initializeDashboard() {
-    const data = window.dashboardData;
-    if (!data) return;
+    if (!window.dashboardData) {
+        console.error('Dashboard data not available');
+        document.querySelectorAll('.no-data').forEach(el => el.style.display = 'block');
+        return;
+    }
 
-    updateStats(data);
-    updateRecentActivity(data);
-    updateTestTabs(data);
-    initializeCharts(data);
-
-    // Time filter handling
-    const filterButtons = document.querySelectorAll('.time-filter button');
-    if (filterButtons) {
-        filterButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const activeButton = document.querySelector('.time-filter button.active');
-                if (activeButton) {
-                    activeButton.classList.remove('active');
-                }
-                this.classList.add('active');
-            });
-        });
+    try {
+        updateStats(window.dashboardData);
+        updateRecentActivity(window.dashboardData);
+        updateTestTabs(window.dashboardData);
+        initializeCharts(window.dashboardData);
+    } catch (error) {
+        console.error('Error initializing dashboard:', error);
+        document.querySelectorAll('.no-data').forEach(el => el.style.display = 'block');
     }
 }
 

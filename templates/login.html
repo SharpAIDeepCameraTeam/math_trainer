@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Sign In{% endblock %}
+{% block title %}Login{% endblock %}
 
 {% block additional_styles %}
 <style>
@@ -13,45 +13,29 @@
         justify-content: center;
     }
 
-    .login-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2.5rem;
-        width: 100%;
-        max-width: 400px;
+    .container {
+        max-width: 800px;
+        margin: 2rem auto;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        margin: 2rem;
     }
 
-    .login-header {
-        text-align: center;
-        margin-bottom: 2rem;
+    .card-body {
+        padding: 2.5rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 10px;
     }
 
-    .login-header h2 {
-        color: #2d3748;
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .login-header p {
-        color: #718096;
-        font-size: 1rem;
-    }
-
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
+    .form-label {
         color: #4a5568;
         font-weight: 500;
     }
 
-    .form-group input {
-        width: 100%;
+    .form-control {
         padding: 0.75rem 1rem;
         border: 2px solid #e2e8f0;
         border-radius: 10px;
@@ -59,15 +43,13 @@
         transition: all 0.2s;
     }
 
-    .form-group input:focus {
+    .form-control:focus {
         border-color: #667eea;
         outline: none;
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
-    .login-button {
-        width: 100%;
-        padding: 0.75rem;
+    .btn-primary {
         background: #667eea;
         color: white;
         border: none;
@@ -78,24 +60,9 @@
         transition: all 0.2s;
     }
 
-    .login-button:hover {
+    .btn-primary:hover {
         background: #5a67d8;
         transform: translateY(-1px);
-    }
-
-    .login-footer {
-        text-align: center;
-        margin-top: 1.5rem;
-    }
-
-    .login-footer a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .login-footer a:hover {
-        text-decoration: underline;
     }
 
     .alert {
@@ -126,36 +93,63 @@
 {% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <div class="login-header">
-        <h2>Welcome Back</h2>
-        <p>Track your math practice progress</p>
-    </div>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">Welcome Back</h2>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="mb-4">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control form-control-lg" id="username" name="username" required>
+                            <div class="invalid-feedback">
+                                Please enter your username
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control form-control-lg" id="password" name="password" required>
+                            <div class="invalid-feedback">
+                                Please enter your password
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-4">Log In</button>
+                        
+                        <div class="text-center">
+                            Don't have an account? <a href="{{ url_for('signup') }}">Sign Up</a>
+                        </div>
+                    </form>
                 </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form method="POST" action="{{ url_for('login') }}">
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required autofocus>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit" class="login-button">Sign In</button>
-    </form>
-
-    <div class="login-footer">
-        <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+});
+</script>
 {% endblock %}

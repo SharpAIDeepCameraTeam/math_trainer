@@ -131,314 +131,155 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    if not current_user.is_authenticated:
-        return render_template('dashboard.html')
+    return redirect(url_for('dashboard'))
 
-    # Get the last 7 days of practice data
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=6)
+@app.route('/dashboard')
+def dashboard():
+    # Get test history for logged in user, or show empty state if not logged in
+    test_history = []
+    if current_user.is_authenticated:
+        test_history = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).limit(10).all()
     
-    # Get practice sessions in date range
-    practice_sessions = TestHistory.query.filter(
-        TestHistory.user_id == current_user.id,
-        TestHistory.date_taken >= start_date,
-        TestHistory.date_taken <= end_date
-    ).all()
-
-    # Prepare daily practice data
-    dates = []
-    practice_minutes = []
-    current_date = start_date
-    
-    while current_date <= end_date:
-        dates.append(current_date.strftime('%Y-%m-%d'))
-        day_sessions = [s for s in practice_sessions if s.date_taken.date() == current_date.date()]
-        total_minutes = sum(s.total_time / 60 for s in day_sessions)
-        practice_minutes.append(round(total_minutes))
-        current_date += timedelta(days=1)
-
-    # Calculate current streak
-    current_streak = 0
-    check_date = end_date.date()
-    while True:
-        day_sessions = [s for s in practice_sessions if s.date_taken.date() == check_date]
-        if not day_sessions:
-            break
-        current_streak += 1
-        check_date -= timedelta(days=1)
-
-    # Get today's stats
-    today_sessions = [s for s in practice_sessions if s.date_taken.date() == end_date.date()]
-    today_minutes = sum(s.total_time / 60 for s in today_sessions)
-    problems_today = sum(s.total_questions for s in today_sessions)
-
-    # Calculate average accuracy
-    if today_sessions:
-        correct_problems = sum(s.total_questions - len(json.loads(s.wrong_questions or '[]')) for s in today_sessions)
-        total_problems = sum(s.total_questions for s in today_sessions)
-        avg_accuracy = (correct_problems / total_problems * 100) if total_problems > 0 else 0
-    else:
-        avg_accuracy = 0
-
-    # Get category performance
-    category_stats = {}
-    for session in practice_sessions:
-        wrong_questions = json.loads(session.wrong_questions or '[]')
-        for question in wrong_questions:
-            category = question.get('category', 'Uncategorized')
-            if category not in category_stats:
-                category_stats[category] = {'correct': 0, 'total': 0}
-            category_stats[category]['total'] += 1
-        total_questions = session.total_questions
-        for category in category_stats:
-            category_stats[category]['total'] += total_questions / len(category_stats)
-
-    category_names = list(category_stats.keys())
-    category_accuracy = [
-        round((1 - stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0, 1)
-        for stats in category_stats.values()
-    ]
-
-    # Get recent activities
-    recent_activities = TestHistory.query.filter_by(user_id=current_user.id)\
-        .order_by(TestHistory.date_taken.desc())\
-        .limit(5)\
-        .all()
-
-    # Get past tests for the summary section
-    past_tests = []
-    test_histories = TestHistory.query.filter_by(user_id=current_user.id)\
-        .order_by(TestHistory.date_taken.desc())\
-        .limit(10)\
-        .all()
-
-    for test in test_histories:
-        # Calculate accuracy
-        wrong_questions = json.loads(test.wrong_questions or '[]')
-        correct_answers = test.total_questions - len(wrong_questions)
-        accuracy = (correct_answers / test.total_questions * 100) if test.total_questions > 0 else 0
-
-        # Process question times
-        question_times = json.loads(test.question_times)
-        question_numbers = list(range(1, len(question_times) + 1))
-
-        past_tests.append({
-            'id': test.id,
-            'date': test.date_taken,
-            'test_type': test.test_type,
-            'accuracy': accuracy,
-            'time': round(test.total_time / 60),  # Convert seconds to minutes
-            'total_questions': test.total_questions,
-            'correct_answers': correct_answers,
-            'question_numbers': question_numbers,
-            'question_times': question_times
-        })
-
-    return render_template('dashboard.html',
-        dates=dates,
-        practice_minutes=practice_minutes,
-        current_streak=current_streak,
-        today_minutes=round(today_minutes),
-        problems_today=problems_today,
-        avg_accuracy=avg_accuracy,
-        category_names=category_names,
-        category_accuracy=category_accuracy,
-        recent_activities=recent_activities,
-        past_tests=past_tests
-    )
+    return render_template('dashboard.html', test_history=test_history)
 
 @app.route('/train')
-@login_required
 def train():
-    return render_template('train.html', user=current_user, categories=PROBLEM_CATEGORIES)
+    return render_template('train.html')
 
-@app.route('/start_test', methods=['POST'])
-@login_required
-def start_test():
-    try:
-        test_type = request.form.get('test_type')
-        
-        if test_type in TEST_CONFIGS:
-            config = TEST_CONFIGS[test_type]
-            num_questions = config['questions']
-            time_limit = config['time']
-        else:  # custom test
-            num_questions = int(request.form.get('num_questions', 30))
-            time_limit = int(request.form.get('time_limit', 40))
+@app.route('/test')
+def test_interface():
+    return render_template('test.html')
 
-        test_id = str(int(time.time()))
-        test_data = {
-            'test_id': test_id,
-            'user_id': current_user.id,
-            'test_type': test_type,
-            'total_questions': num_questions,
-            'time_limit': time_limit * 60,  # Convert to seconds
-            'start_time': int(time.time()),
-            'question_times': [],
-            'wrong_questions': [],
-            'current_question': 0,
-            'completed': False
-        }
-        active_tests[test_id] = test_data
-        
-        return redirect(url_for('test_interface', test_id=test_id))
-    except Exception as e:
-        app.logger.error(f"Error starting test: {str(e)}")
-        flash(f'Failed to start test: {str(e)}', 'error')
-        return redirect(url_for('train'))
-
-@app.route('/test/<test_id>')
-@login_required
-def test_interface(test_id):
-    test = active_tests.get(test_id)
-    if not test:
-        flash('Test not found or has expired', 'error')
-        return redirect(url_for('train'))
-        
-    if test['user_id'] != current_user.id:
-        flash('Unauthorized access to test', 'error')
-        return redirect(url_for('train'))
-    
-    return render_template('test.html', 
-                         user=current_user, 
-                         test=test,
-                         categories=PROBLEM_CATEGORIES)
-
-@app.route('/api/record-question', methods=['POST'])
-@login_required
-def record_question():
-    try:
-        data = request.json
-        test_id = data['test_id']
-        test = active_tests.get(test_id)
-        
-        if not test:
-            return jsonify({'error': 'Test not found'}), 404
-            
-        if test['user_id'] != current_user.id:
-            return jsonify({'error': 'Unauthorized'}), 403
-        
-        question_time = data['time']
-        test['question_times'].append(question_time)
-        test['current_question'] = data['question_number']
-        
-        if data.get('wrong_data'):
-            test['wrong_questions'].append({
-                'question_number': data['question_number'],
-                'category': data['wrong_data']['category']
-            })
-        
-        if test['current_question'] >= test['total_questions']:
-            test['completed'] = True
-            save_test_history(test)
-            active_tests.pop(test_id, None)
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        app.logger.error(f"Error recording question: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/results/<test_id>')
-@login_required
+@app.route('/results/<int:test_id>')
 def results(test_id):
-    # Mock data for results - replace with real data from database
-    test_data = {
-        'test': {
-            'current_question': 30,
-            'total_questions': 30,
-            'question_times': [15, 32, 45, 60, 75, 89, 102, 118, 130, 145,
-                             160, 178, 190, 205, 220, 238, 255, 270, 285, 300,
-                             315, 330, 348, 360, 375, 390, 405, 420, 435, 450],
-        },
-        'categories': {
-            'Geometry': ['Triangles', 'Circles', 'Polygons', 'Coordinate Geometry', 'Transformations'],
-            'Algebra': ['Equations', 'Inequalities', 'Functions', 'Polynomials', 'Complex Numbers'],
-            'Number Theory': ['Divisibility', 'Prime Numbers', 'Modular Arithmetic', 'Number Sequences', 'Diophantine Equations'],
-            'Word Problems': ['Rate Problems', 'Work Problems', 'Mixture Problems', 'Age Problems', 'Distance Problems'],
-            'Combinatorics': ['Permutations', 'Combinations', 'Probability', 'Expected Value', 'Graph Theory']
-        }
-    }
-    return render_template('results.html', **test_data)
+    test = None
+    if current_user.is_authenticated:
+        test = TestHistory.query.get_or_404(test_id)
+        if test.user_id != current_user.id:
+            abort(403)
+    return render_template('results.html', test=test)
 
 @app.route('/analytics')
-@login_required
 def analytics():
-    # Mock data for analytics - replace with real data from database
-    analytics_data = {
-        'accuracy_trend': [85.5, 87.2, 88.1, 86.9, 89.0],  # Last 5 periods
-        'average_time': 45.3,  # seconds
-        'problems_per_day': 25,
-        'best_streak': 15,
-        'categories': [
-            {'name': 'Geometry', 'accuracy': 88.5},
-            {'name': 'Algebra', 'accuracy': 92.1},
-            {'name': 'Number Theory', 'accuracy': 85.7},
-            {'name': 'Word Problems', 'accuracy': 79.3},
-            {'name': 'Combinatorics', 'accuracy': 83.2}
-        ]
-    }
+    analytics_data = {}
+    if current_user.is_authenticated:
+        analytics_data = get_analytics_data(current_user.id)
     return render_template('analytics.html', **analytics_data)
+
+@app.route('/api/record-question', methods=['POST'])
+def record_question():
+    data = request.get_json()
+    
+    if current_user.is_authenticated:
+        # Save to database if user is logged in
+        test = TestHistory(
+            user_id=current_user.id,
+            test_type=data['test_type'],
+            total_questions=data['total_questions'],
+            completed_questions=data['current_question'],
+            total_time=data['total_time'],
+            question_times=json.dumps(data['question_times']),
+            wrong_questions=json.dumps(data.get('wrong_questions', [])),
+            date_taken=datetime.utcnow()
+        )
+        db.session.add(test)
+        db.session.commit()
+        return jsonify({'test_id': test.id})
+    else:
+        # Store in session if user is not logged in
+        if 'test_history' not in session:
+            session['test_history'] = []
+        
+        test_data = {
+            'id': len(session['test_history']) + 1,
+            'test_type': data['test_type'],
+            'total_questions': data['total_questions'],
+            'completed_questions': data['current_question'],
+            'total_time': data['total_time'],
+            'question_times': data['question_times'],
+            'wrong_questions': data.get('wrong_questions', []),
+            'date_taken': datetime.utcnow().isoformat()
+        }
+        session['test_history'].append(test_data)
+        session.modified = True
+        return jsonify({'test_id': test_data['id']})
+
+@app.route('/api/dashboard-data')
+def dashboard_data():
+    if current_user.is_authenticated:
+        # Get data from database for logged in users
+        test_history = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).limit(10).all()
+        history_data = []
+        for test in test_history:
+            history_data.append({
+                'id': test.id,
+                'test_type': test.test_type,
+                'total_questions': test.total_questions,
+                'completed_questions': test.completed_questions,
+                'total_time': test.total_time,
+                'date_taken': test.date_taken.isoformat()
+            })
+    else:
+        # Get data from session for anonymous users
+        history_data = session.get('test_history', [])
+    
+    return jsonify({
+        'test_history': history_data,
+        'is_authenticated': current_user.is_authenticated
+    })
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        # Check if username already exists
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Username already exists. Please choose another username.', 'danger')
+            return redirect(url_for('signup'))
+
+        if password != confirm_password:
+            flash('Passwords do not match.', 'danger')
+            return redirect(url_for('signup'))
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+            return redirect(url_for('signup'))
+
+        # Create new user
+        user = User(username=username)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        # Log the user in
+        login_user(user)
+        session['show_banner'] = True  # Set banner flag
+        flash('Account created successfully! Welcome to Math Trainer.', 'success')
+        return redirect(url_for('dashboard'))
+
+    return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        remember = request.form.get('remember', False) == 'on'
-        
         user = User.query.filter_by(username=username).first()
-        
+
         if user and user.check_password(password):
-            login_user(user, remember=remember)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('index'))
-        
-        flash('Invalid username or password.', 'error')
-    
-    return render_template('login.html')
-
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-
-        # Basic validation
-        if not username or not email or not password or not confirm_password:
-            flash('All fields are required', 'error')
-            return redirect(url_for('signup'))
-
-        if password != confirm_password:
-            flash('Passwords do not match', 'error')
-            return redirect(url_for('signup'))
-
-        if len(password) < 4:
-            flash('Password must be at least 4 characters long', 'error')
-            return redirect(url_for('signup'))
-
-        # Check if username already exists
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            flash('Username already exists', 'error')
-            return redirect(url_for('signup'))
-
-        # Create new user
-        hashed_password = generate_password_hash(password)
-        new_user = User(username=username, email=email, password=hashed_password)
-        
-        try:
-            db.session.add(new_user)
-            db.session.commit()
-            flash('Account created successfully! Please log in.', 'success')
+            login_user(user)
+            session['show_banner'] = True  # Set banner flag
+            flash('Welcome back!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password.', 'danger')
             return redirect(url_for('login'))
-        except Exception as e:
-            db.session.rollback()
-            flash('An error occurred. Please try again.', 'error')
-            return redirect(url_for('signup'))
 
-    return render_template('signup.html')
+    return render_template('login.html')
 
 @app.route('/logout')
 @login_required
@@ -446,149 +287,12 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
-@app.route('/api/history')
-@login_required
-def get_history():
-    tests = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).all()
-    return jsonify([{
-        'id': test.id,
-        'test_type': test.test_type,
-        'total_questions': test.total_questions,
-        'completed_questions': test.completed_questions,
-        'total_time': test.total_time,
-        'date_taken': test.date_taken.strftime('%Y-%m-%d %H:%M:%S')
-    } for test in tests])
-
-@app.route('/api/stats')
-@login_required
-def get_stats():
-    tests = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).all()
-    stats = {
-        'total_tests': len(tests),
-        'total_questions': sum(test.total_questions for test in tests),
-        'average_time': sum(test.total_time for test in tests) / len(tests) if tests else 0,
-        'category_stats': {},
-        'recent_tests': [{
-            'id': test.id,
-            'test_type': test.test_type,
-            'total_questions': test.total_questions,
-            'completed_questions': test.completed_questions,
-            'total_time': test.total_time,
-            'date_taken': test.date_taken.strftime('%Y-%m-%d %H:%M:%S'),
-            'wrong_questions': json.loads(test.wrong_questions) if test.wrong_questions else []
-        } for test in tests[:10]]
-    }
-    
-    # Calculate category statistics
-    for test in tests:
-        if test.wrong_questions:
-            wrong_qs = json.loads(test.wrong_questions)
-            for q in wrong_qs:
-                cat = q.get('category')
-                if cat:
-                    if cat not in stats['category_stats']:
-                        stats['category_stats'][cat] = {'total': 0, 'subcategories': {}}
-                    stats['category_stats'][cat]['total'] += 1
-                    
-                    subcat = q.get('subcategory')
-                    if subcat:
-                        if subcat not in stats['category_stats'][cat]['subcategories']:
-                            stats['category_stats'][cat]['subcategories'][subcat] = 0
-                        stats['category_stats'][cat]['subcategories'][subcat] += 1
-    
-    return jsonify(stats)
-
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
 
-@app.route('/dashboard/data')
-@login_required
-def dashboard_data():
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=6)
-    
-    practice_sessions = TestHistory.query.filter(
-        TestHistory.user_id == current_user.id,
-        TestHistory.date_taken >= start_date,
-        TestHistory.date_taken <= end_date
-    ).all()
-
-    # Prepare daily practice data
-    dates = []
-    practice_minutes = []
-    current_date = start_date
-    
-    while current_date <= end_date:
-        dates.append(current_date.strftime('%Y-%m-%d'))
-        day_sessions = [s for s in practice_sessions if s.date_taken.date() == current_date.date()]
-        total_minutes = sum(s.total_time / 60 for s in day_sessions)
-        practice_minutes.append(round(total_minutes))
-        current_date += timedelta(days=1)
-
-    # Get category performance
-    category_stats = {}
-    for session in practice_sessions:
-        wrong_questions = json.loads(session.wrong_questions or '[]')
-        for question in wrong_questions:
-            category = question.get('category', 'Uncategorized')
-            if category not in category_stats:
-                category_stats[category] = {'correct': 0, 'total': 0}
-            category_stats[category]['total'] += 1
-        total_questions = session.total_questions
-        for category in category_stats:
-            category_stats[category]['total'] += total_questions / len(category_stats)
-
-    category_names = list(category_stats.keys())
-    category_accuracy = [
-        round((1 - stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0, 1)
-        for stats in category_stats.values()
-    ]
-
-    # Get past tests
-    past_tests = []
-    test_histories = TestHistory.query.filter_by(user_id=current_user.id)\
-        .order_by(TestHistory.date_taken.desc())\
-        .limit(10)\
-        .all()
-
-    for test in test_histories:
-        wrong_questions = json.loads(test.wrong_questions or '[]')
-        correct_answers = test.total_questions - len(wrong_questions)
-        accuracy = (correct_answers / test.total_questions * 100) if test.total_questions > 0 else 0
-
-        question_times = json.loads(test.question_times)
-        question_numbers = list(range(1, len(question_times) + 1))
-
-        past_tests.append({
-            'id': test.id,
-            'date': test.date_taken.strftime('%Y-%m-%d'),
-            'test_type': test.test_type,
-            'accuracy': accuracy,
-            'time': round(test.total_time / 60),
-            'total_questions': test.total_questions,
-            'correct_answers': correct_answers,
-            'question_numbers': question_numbers,
-            'question_times': question_times
-        })
-
-    return jsonify({
-        'practice': {
-            'dates': dates,
-            'minutes': practice_minutes
-        },
-        'category': {
-            'names': category_names,
-            'accuracy': category_accuracy
-        },
-        'tests': past_tests
-    })
-
-@app.route('/analytics/data')
-@login_required
-def analytics_data():
-    # Get user's test history
-    test_history = TestHistory.query.filter_by(user_id=current_user.id).all()
+def get_analytics_data(user_id):
+    test_history = TestHistory.query.filter_by(user_id=user_id).all()
     
     # Prepare analytics data
     accuracy_data = []
@@ -627,73 +331,14 @@ def analytics_data():
         for stats in category_data.values()
     ]
 
-    return jsonify({
+    return {
         'accuracy_trend': accuracy_data,
         'time_trend': time_data,
         'categories': {
             'names': categories,
             'accuracy': accuracy_by_category
         }
-    })
-
-@app.route('/test/data/<int:test_id>')
-@login_required
-def test_data(test_id):
-    test = TestHistory.query.get_or_404(test_id)
-    if test.user_id != current_user.id:
-        abort(403)
-    
-    return jsonify({
-        'questions': test.total_questions,
-        'current_question': test.completed_questions,
-        'total_questions': test.total_questions,
-        'time_started': test.date_taken.isoformat() if test.date_taken else None,
-        'time_per_question': test.total_time / test.total_questions if test.total_questions > 0 else 0
-    })
-
-@app.route('/results/data/<int:test_id>')
-@login_required
-def results_data(test_id):
-    test_history = TestHistory.query.get_or_404(test_id)
-    if test_history.user_id != current_user.id:
-        abort(403)
-    
-    wrong_questions = json.loads(test_history.wrong_questions)
-    question_times = json.loads(test_history.question_times)
-    
-    return jsonify({
-        'test_type': test_history.test_type,
-        'date': test_history.date_taken.strftime('%Y-%m-%d %H:%M'),
-        'total_time': test_history.total_time,
-        'total_questions': test_history.total_questions,
-        'wrong_questions': wrong_questions,
-        'question_times': question_times,
-        'accuracy': ((test_history.total_questions - len(wrong_questions)) / test_history.total_questions * 100) 
-            if test_history.total_questions > 0 else 0
-    })
-
-@app.route('/api/categories')
-@login_required
-def get_categories():
-    return jsonify({
-        'categories': [{
-            'name': category,
-            'subcategories': subcategories
-        } for category, subcategories in PROBLEM_CATEGORIES.items()]
-    })
-
-def save_test_history(test):
-    history = TestHistory(
-        user_id=test['user_id'],
-        test_type=test['test_type'],
-        total_questions=test['total_questions'],
-        completed_questions=test['current_question'],
-        total_time=test['question_times'][-1] if test['question_times'] else 0,
-        question_times=json.dumps(test['question_times']),
-        wrong_questions=json.dumps(test['wrong_questions'])
-    )
-    db.session.add(history)
-    db.session.commit()
+    }
 
 with app.app_context():
     db.create_all()

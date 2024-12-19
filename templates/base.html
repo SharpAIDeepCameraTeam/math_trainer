@@ -157,19 +157,33 @@
     </div>
 
     {% if not current_user.is_authenticated %}
-    <div class="not-logged-in-banner position-fixed w-100" style="top: 0; z-index: 1030; background: linear-gradient(to right, #ffc107, #ffb300);">
-        <div class="container py-2">
+    <div class="alert alert-info alert-dismissible fade show m-3" role="alert">
+        <div class="container">
             <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    <span><strong>Not logged in!</strong> Your progress won't be saved.
-                    <a href="{{ url_for('login') }}" class="text-dark"><u>Sign in</u></a> or
-                    <a href="{{ url_for('signup') }}" class="text-dark"><u>create an account</u></a> to track your progress.</span>
+                <div>
+                    <i class="bi bi-info-circle me-2"></i>
+                    <span>You're using Math Trainer as a guest. <a href="{{ url_for('signup') }}" class="alert-link">Sign up</a> or <a href="{{ url_for('login') }}" class="alert-link">log in</a> to save your progress!</span>
                 </div>
-                <button type="button" class="btn-close" onclick="this.parentElement.parentElement.parentElement.style.display='none'" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% if session.get('show_banner') %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mt-4">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% set _ = session.pop('show_banner', None) %}
+            {% endif %}
+        {% endwith %}
     {% endif %}
 
     <div class="main-content">
