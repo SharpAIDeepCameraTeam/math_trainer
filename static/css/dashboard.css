@@ -1,0 +1,93 @@
+.dashboard-container {
+    padding: 2rem 0;
+}
+
+.stats-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: 100%;
+}
+
+.stats-card h3 {
+    color: #2d3748;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.streak-chart {
+    height: 300px;
+}
+
+.date-label {
+    font-size: 0.875rem;
+    color: #718096;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.test-summary {
+    margin-top: 2rem;
+}
+
+.test-tabs {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.test-tab {
+    min-width: 300px;
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.test-tab h4 {
+    color: #2d3748;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.test-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.test-stat {
+    text-align: center;
+}
+
+.test-stat-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.test-stat-label {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.mini-chart {
+    height: 150px;
+    margin-top: 1rem;
+}
+
+.view-details {
+    display: block;
+    text-align: center;
+    margin-top: 1rem;
+    color: #667eea;
+    text-decoration: none;
+}
+
+.view-details:hover {
+    text-decoration: underline;
+}

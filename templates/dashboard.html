@@ -3,36 +3,7 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block additional_styles %}
-<style>
-    .dashboard-container {
-        padding: 2rem 0;
-    }
-
-    .stats-card {
-        background: white;
-        border-radius: 15px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        height: 100%;
-    }
-
-    .stats-card h3 {
-        color: #2d3748;
-        margin-bottom: 1rem;
-        font-size: 1.25rem;
-    }
-
-    .streak-chart {
-        height: 300px;
-    }
-
-    .date-label {
-        font-size: 0.875rem;
-        color: #718096;
-        text-align: center;
-        margin-top: 0.5rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -60,19 +31,19 @@
                     <h3>Current Stats</h3>
                     <div class="mb-3">
                         <strong>Today's Practice:</strong>
-                        <span id="todayPractice">{{ today_minutes }} minutes</span>
+                        <span id="todayPractice"></span>
                     </div>
                     <div class="mb-3">
                         <strong>Current Streak:</strong>
-                        <span id="currentStreak">{{ current_streak }} days</span>
+                        <span id="currentStreak"></span>
                     </div>
                     <div class="mb-3">
                         <strong>Problems Today:</strong>
-                        <span id="problemsToday">{{ problems_today }}</span>
+                        <span id="problemsToday"></span>
                     </div>
                     <div>
                         <strong>Average Accuracy:</strong>
-                        <span id="avgAccuracy">{{ "%.1f"|format(avg_accuracy|default(0)) }}%</span>
+                        <span id="avgAccuracy"></span>
                     </div>
                 </div>
             </div>
@@ -99,17 +70,18 @@
                                     <th>Time</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for activity in recent_activities %}
-                                <tr>
-                                    <td>{{ activity.date.strftime('%Y-%m-%d') }}</td>
-                                    <td>{{ activity.test_type }}</td>
-                                    <td>{{ activity.score }}%</td>
-                                    <td>{{ activity.time }} min</td>
-                                </tr>
-                                {% endfor %}
+                            <tbody id="recent-activity-body">
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Past Tests Summary -->
+            <div class="col-12">
+                <div class="test-summary">
+                    <h3 class="mb-4">Past Tests Summary</h3>
+                    <div class="test-tabs" id="test-tabs">
                     </div>
                 </div>
             </div>
@@ -120,67 +92,15 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard-init.js') }}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Practice Time Chart
-    const practiceCtx = document.getElementById('practiceTimeChart').getContext('2d');
-    new Chart(practiceCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ dates|tojson }},
-            datasets: [{
-                label: 'Minutes Practiced',
-                data: {{ practice_minutes|tojson }},
-                backgroundColor: '#667eea',
-                borderRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Minutes'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            }
-        }
-    });
-
-    // Category Performance Chart
-    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-    new Chart(categoryCtx, {
-        type: 'radar',
-        data: {
-            labels: {{ category_names|tojson }},
-            datasets: [{
-                label: 'Accuracy',
-                data: {{ category_accuracy|tojson }},
-                backgroundColor: 'rgba(102, 126, 234, 0.2)',
-                borderColor: '#667eea',
-                pointBackgroundColor: '#667eea',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: '#667eea'
-            }]
-        },
-        options: {
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
-    });
-});
+// Fetch dashboard data and initialize charts
+fetch('/dashboard/data')
+    .then(response => response.json())
+    .then(data => {
+        window.dashboardData = data;
+        initializeDashboard();
+    })
+    .catch(error => console.error('Error loading dashboard data:', error));
 </script>
 {% endblock %}

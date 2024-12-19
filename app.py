@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import os
 import json
 import logging
+from collections import defaultdict
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
@@ -204,6 +205,35 @@ def index():
         .limit(5)\
         .all()
 
+    # Get past tests for the summary section
+    past_tests = []
+    test_histories = TestHistory.query.filter_by(user_id=current_user.id)\
+        .order_by(TestHistory.date_taken.desc())\
+        .limit(10)\
+        .all()
+
+    for test in test_histories:
+        # Calculate accuracy
+        wrong_questions = json.loads(test.wrong_questions or '[]')
+        correct_answers = test.total_questions - len(wrong_questions)
+        accuracy = (correct_answers / test.total_questions * 100) if test.total_questions > 0 else 0
+
+        # Process question times
+        question_times = json.loads(test.question_times)
+        question_numbers = list(range(1, len(question_times) + 1))
+
+        past_tests.append({
+            'id': test.id,
+            'date': test.date_taken,
+            'test_type': test.test_type,
+            'accuracy': accuracy,
+            'time': round(test.total_time / 60),  # Convert seconds to minutes
+            'total_questions': test.total_questions,
+            'correct_answers': correct_answers,
+            'question_numbers': question_numbers,
+            'question_times': question_times
+        })
+
     return render_template('dashboard.html',
         dates=dates,
         practice_minutes=practice_minutes,
@@ -213,7 +243,8 @@ def index():
         avg_accuracy=avg_accuracy,
         category_names=category_names,
         category_accuracy=category_accuracy,
-        recent_activities=recent_activities
+        recent_activities=recent_activities,
+        past_tests=past_tests
     )
 
 @app.route('/train')
@@ -470,6 +501,186 @@ def get_stats():
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+
+@app.route('/dashboard/data')
+@login_required
+def dashboard_data():
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=6)
+    
+    practice_sessions = TestHistory.query.filter(
+        TestHistory.user_id == current_user.id,
+        TestHistory.date_taken >= start_date,
+        TestHistory.date_taken <= end_date
+    ).all()
+
+    # Prepare daily practice data
+    dates = []
+    practice_minutes = []
+    current_date = start_date
+    
+    while current_date <= end_date:
+        dates.append(current_date.strftime('%Y-%m-%d'))
+        day_sessions = [s for s in practice_sessions if s.date_taken.date() == current_date.date()]
+        total_minutes = sum(s.total_time / 60 for s in day_sessions)
+        practice_minutes.append(round(total_minutes))
+        current_date += timedelta(days=1)
+
+    # Get category performance
+    category_stats = {}
+    for session in practice_sessions:
+        wrong_questions = json.loads(session.wrong_questions or '[]')
+        for question in wrong_questions:
+            category = question.get('category', 'Uncategorized')
+            if category not in category_stats:
+                category_stats[category] = {'correct': 0, 'total': 0}
+            category_stats[category]['total'] += 1
+        total_questions = session.total_questions
+        for category in category_stats:
+            category_stats[category]['total'] += total_questions / len(category_stats)
+
+    category_names = list(category_stats.keys())
+    category_accuracy = [
+        round((1 - stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0, 1)
+        for stats in category_stats.values()
+    ]
+
+    # Get past tests
+    past_tests = []
+    test_histories = TestHistory.query.filter_by(user_id=current_user.id)\
+        .order_by(TestHistory.date_taken.desc())\
+        .limit(10)\
+        .all()
+
+    for test in test_histories:
+        wrong_questions = json.loads(test.wrong_questions or '[]')
+        correct_answers = test.total_questions - len(wrong_questions)
+        accuracy = (correct_answers / test.total_questions * 100) if test.total_questions > 0 else 0
+
+        question_times = json.loads(test.question_times)
+        question_numbers = list(range(1, len(question_times) + 1))
+
+        past_tests.append({
+            'id': test.id,
+            'date': test.date_taken.strftime('%Y-%m-%d'),
+            'test_type': test.test_type,
+            'accuracy': accuracy,
+            'time': round(test.total_time / 60),
+            'total_questions': test.total_questions,
+            'correct_answers': correct_answers,
+            'question_numbers': question_numbers,
+            'question_times': question_times
+        })
+
+    return jsonify({
+        'practice': {
+            'dates': dates,
+            'minutes': practice_minutes
+        },
+        'category': {
+            'names': category_names,
+            'accuracy': category_accuracy
+        },
+        'tests': past_tests
+    })
+
+@app.route('/analytics/data')
+@login_required
+def analytics_data():
+    # Get user's test history
+    test_history = TestHistory.query.filter_by(user_id=current_user.id).all()
+    
+    # Prepare analytics data
+    accuracy_data = []
+    time_data = []
+    category_data = defaultdict(lambda: {'correct': 0, 'total': 0})
+    
+    for test in test_history:
+        # Add accuracy point
+        accuracy_data.append({
+            'date': test.date_taken.strftime('%Y-%m-%d'),
+            'accuracy': (test.total_questions - len(json.loads(test.wrong_questions))) / test.total_questions * 100
+        })
+        
+        # Add time point
+        time_data.append({
+            'date': test.date_taken.strftime('%Y-%m-%d'),
+            'time': test.total_time
+        })
+        
+        # Update category stats
+        wrong_questions = json.loads(test.wrong_questions)
+        for q in wrong_questions:
+            category = q.get('category', 'Unknown')
+            category_data[category]['total'] += 1
+        
+        # Add correct answers to categories
+        total_per_category = test.total_questions / len(category_data)
+        for category in category_data:
+            category_data[category]['total'] += total_per_category
+            category_data[category]['correct'] += total_per_category - category_data[category]['total']
+
+    # Convert category data to lists for charts
+    categories = list(category_data.keys())
+    accuracy_by_category = [
+        (stats['correct'] / stats['total'] * 100) if stats['total'] > 0 else 0
+        for stats in category_data.values()
+    ]
+
+    return jsonify({
+        'accuracy_trend': accuracy_data,
+        'time_trend': time_data,
+        'categories': {
+            'names': categories,
+            'accuracy': accuracy_by_category
+        }
+    })
+
+@app.route('/test/data/<int:test_id>')
+@login_required
+def test_data(test_id):
+    test = TestHistory.query.get_or_404(test_id)
+    if test.user_id != current_user.id:
+        abort(403)
+    
+    return jsonify({
+        'questions': test.total_questions,
+        'current_question': test.completed_questions,
+        'total_questions': test.total_questions,
+        'time_started': test.date_taken.isoformat() if test.date_taken else None,
+        'time_per_question': test.total_time / test.total_questions if test.total_questions > 0 else 0
+    })
+
+@app.route('/results/data/<int:test_id>')
+@login_required
+def results_data(test_id):
+    test_history = TestHistory.query.get_or_404(test_id)
+    if test_history.user_id != current_user.id:
+        abort(403)
+    
+    wrong_questions = json.loads(test_history.wrong_questions)
+    question_times = json.loads(test_history.question_times)
+    
+    return jsonify({
+        'test_type': test_history.test_type,
+        'date': test_history.date_taken.strftime('%Y-%m-%d %H:%M'),
+        'total_time': test_history.total_time,
+        'total_questions': test_history.total_questions,
+        'wrong_questions': wrong_questions,
+        'question_times': question_times,
+        'accuracy': ((test_history.total_questions - len(wrong_questions)) / test_history.total_questions * 100) 
+            if test_history.total_questions > 0 else 0
+    })
+
+@app.route('/api/categories')
+@login_required
+def get_categories():
+    return jsonify({
+        'categories': [{
+            'name': category,
+            'subcategories': subcategories
+        } for category, subcategories in PROBLEM_CATEGORIES.items()]
+    })
 
 def save_test_history(test):
     history = TestHistory(
