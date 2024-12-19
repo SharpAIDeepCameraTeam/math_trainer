@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import time
 from datetime import datetime
 import os
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -31,7 +32,68 @@ class TestHistory(db.Model):
     completed_questions = db.Column(db.Integer, nullable=False)
     total_time = db.Column(db.Integer, nullable=False)  # in seconds
     question_times = db.Column(db.Text, nullable=False)  # JSON string of times
+    wrong_questions = db.Column(db.Text, nullable=True)  # JSON string of wrong question data
     date_taken = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+class ProblemCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('problem_category.id'), nullable=True)
+    subcategories = db.relationship('ProblemCategory', backref=db.backref('parent', remote_side=[id]))
+
+# Problem categories data
+PROBLEM_CATEGORIES = {
+    "Geometry": [
+        "Angle Chasing",
+        "Congruence and Similarity",
+        "Circle Problems",
+        "Polygon Properties",
+        "Triangles",
+        "Coordinate Geometry",
+        "3D Geometry",
+        "Special Triangles"
+    ],
+    "Algebra": [
+        "Linear Equations",
+        "Quadratics",
+        "Polynomials",
+        "Exponential and Logarithmic Problems",
+        "Functional Equations",
+        "Sequences and Series"
+    ],
+    "Arithmetic and Number Theory": [
+        "Prime Factorization",
+        "Divisibility",
+        "Modular Arithmetic",
+        "Number Bases",
+        "Clock Problems",
+        "Digit Problems",
+        "Consecutive Numbers"
+    ],
+    "Word Problems": [
+        "Speed, Distance, and Rate",
+        "Work Problems",
+        "Mixture Problems",
+        "Age Problems",
+        "Percentage Problems",
+        "Proportion and Ratio Problems"
+    ],
+    "Counting and Probability": [
+        "Permutations",
+        "Combinations",
+        "Probability",
+        "Expected Value",
+        "Set Problems"
+    ],
+    "Miscellaneous Problems": [
+        "Clock Problems",
+        "Calendar Problems",
+        "Pattern Problems",
+        "Optimization Problems",
+        "Logic Problems",
+        "Estimation Problems"
+    ]
+}
 
 # Active tests in memory
 active_tests = {}
@@ -42,7 +104,15 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return render_template('index.html', user=current_user)
+    return render_template('dashboard.html', user=current_user)
+
+@app.route('/train')
+def train():
+    return render_template('train.html', user=current_user, categories=PROBLEM_CATEGORIES)
+
+@app.route('/api/categories')
+def get_categories():
+    return jsonify(PROBLEM_CATEGORIES)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -108,6 +178,16 @@ def record_question():
     test['question_times'].append(current_time)
     test['current_question'] += 1
     
+    # Record wrong question if specified
+    if 'wrongQuestion' in data:
+        if 'wrong_questions' not in test:
+            test['wrong_questions'] = []
+        test['wrong_questions'].append({
+            'question_number': data['wrongQuestion'],
+            'category': data.get('category'),
+            'subcategory': data.get('subcategory')
+        })
+    
     if test['current_question'] >= test['total_questions']:
         test['completed'] = True
         if current_user.is_authenticated:
@@ -159,6 +239,45 @@ def get_history():
         'date_taken': test.date_taken.strftime('%Y-%m-%d %H:%M:%S')
     } for test in tests])
 
+@app.route('/api/stats')
+@login_required
+def get_stats():
+    tests = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).all()
+    stats = {
+        'total_tests': len(tests),
+        'total_questions': sum(test.total_questions for test in tests),
+        'average_time': sum(test.total_time for test in tests) / len(tests) if tests else 0,
+        'category_stats': {},
+        'recent_tests': [{
+            'id': test.id,
+            'test_type': test.test_type,
+            'total_questions': test.total_questions,
+            'completed_questions': test.completed_questions,
+            'total_time': test.total_time,
+            'date_taken': test.date_taken.strftime('%Y-%m-%d %H:%M:%S'),
+            'wrong_questions': json.loads(test.wrong_questions) if test.wrong_questions else []
+        } for test in tests[:10]]
+    }
+    
+    # Calculate category statistics
+    for test in tests:
+        if test.wrong_questions:
+            wrong_qs = json.loads(test.wrong_questions)
+            for q in wrong_qs:
+                cat = q.get('category')
+                if cat:
+                    if cat not in stats['category_stats']:
+                        stats['category_stats'][cat] = {'total': 0, 'subcategories': {}}
+                    stats['category_stats'][cat]['total'] += 1
+                    
+                    subcat = q.get('subcategory')
+                    if subcat:
+                        if subcat not in stats['category_stats'][cat]['subcategories']:
+                            stats['category_stats'][cat]['subcategories'][subcat] = 0
+                        stats['category_stats'][cat]['subcategories'][subcat] += 1
+    
+    return jsonify(stats)
+
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
@@ -171,13 +290,27 @@ def save_test_history(test):
         total_questions=test['total_questions'],
         completed_questions=test['current_question'],
         total_time=total_time,
-        question_times=str(test['question_times'])
+        question_times=json.dumps(test['question_times']),
+        wrong_questions=json.dumps(test.get('wrong_questions', []))
     )
     db.session.add(history)
     db.session.commit()
 
 with app.app_context():
     db.create_all()
+    
+    # Initialize problem categories if empty
+    if not ProblemCategory.query.first():
+        for main_category, subcategories in PROBLEM_CATEGORIES.items():
+            parent = ProblemCategory(name=main_category)
+            db.session.add(parent)
+            db.session.flush()  # Get the ID
+            
+            for subcategory in subcategories:
+                child = ProblemCategory(name=subcategory, parent_id=parent.id)
+                db.session.add(child)
+        
+        db.session.commit()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)

@@ -3,6 +3,8 @@ let timerInterval = null;
 let startTime = null;
 let timeLimit = null;
 let speedChart = null;
+let wrongQuestions = [];
+let currentQuestion = 0;
 
 // Screen management
 const screens = {
@@ -39,10 +41,25 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
     testId = data.test_id;
     timeLimit = testData.timeLimit * 60; // Convert to seconds
     startTime = Date.now();
+    currentQuestion = 0;
+    wrongQuestions = [];
     
     // Update UI
     document.getElementById('progress').textContent = 
-        `Question: 0/${testData.numQuestions}`;
+        `Question: ${currentQuestion}/${testData.numQuestions}`;
+    
+    // Show instructions
+    const instructions = document.createElement('div');
+    instructions.className = 'alert alert-info text-center mb-4';
+    instructions.innerHTML = `
+        <strong>Instructions:</strong><br>
+        Press <kbd>Space</kbd> to mark a question as completed.<br>
+        Press <kbd>W</kbd> to mark a question as wrong and select its category.
+    `;
+    document.querySelector('.card-body').insertBefore(
+        instructions, 
+        document.querySelector('.timer-container')
+    );
     
     // Start timer
     startTimer();
@@ -86,37 +103,146 @@ function getTimerColor(progress) {
 
 // Question recording with animation
 document.addEventListener('keydown', async (e) => {
-    if (e.code === 'Space' && screens.test.classList.contains('d-none') === false) {
+    if (screens.test.classList.contains('d-none')) return;
+    
+    if (e.code === 'Space') {
         e.preventDefault();
-        
-        // Trigger animation
-        const ripple = document.querySelector('.ripple-container');
-        ripple.classList.add('space-pressed');
-        setTimeout(() => ripple.classList.remove('space-pressed'), 500);
-        
-        const response = await fetch('/api/record-question', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ testId })
-        });
-        
-        const data = await response.json();
-        
-        // Update progress with animation
-        const progress = document.getElementById('progress');
-        progress.style.transform = 'scale(1.1)';
-        setTimeout(() => progress.style.transform = 'scale(1)', 200);
-        
-        const [_, total] = progress.textContent.split('/');
-        progress.textContent = `Question: ${data.current_question}/${total}`;
-        
-        if (data.completed) {
-            endTest();
-        }
+        await recordQuestion();
+    } else if (e.code === 'KeyW') {
+        e.preventDefault();
+        showWrongQuestionModal();
     }
 });
+
+async function recordQuestion(wrongData = null) {
+    // Trigger animation
+    const ripple = document.querySelector('.ripple-container');
+    ripple.classList.add('space-pressed');
+    setTimeout(() => ripple.classList.remove('space-pressed'), 500);
+    
+    const data = {
+        testId: testId
+    };
+    
+    if (wrongData) {
+        data.wrongQuestion = currentQuestion + 1;
+        data.category = wrongData.category;
+        data.subcategory = wrongData.subcategory;
+        wrongQuestions.push({
+            question: currentQuestion + 1,
+            ...wrongData
+        });
+    }
+    
+    const response = await fetch('/api/record-question', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    
+    const responseData = await response.json();
+    currentQuestion = responseData.current_question;
+    
+    // Update progress with animation
+    const progress = document.getElementById('progress');
+    progress.style.transform = 'scale(1.1)';
+    setTimeout(() => progress.style.transform = 'scale(1)', 200);
+    
+    const [_, total] = progress.textContent.split('/');
+    progress.textContent = `Question: ${currentQuestion}/${total}`;
+    
+    if (responseData.completed) {
+        endTest();
+    }
+}
+
+function showWrongQuestionModal() {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('wrongQuestionModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'wrongQuestionModal';
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mark Question as Wrong</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="wrong-question-form">
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" id="category-select" required>
+                                    <option value="">Select category...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Subcategory</label>
+                                <select class="form-select" id="subcategory-select" required disabled>
+                                    <option value="">Select subcategory...</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="save-wrong-question">Save</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Initialize category select
+        fetch('/api/categories')
+            .then(response => response.json())
+            .then(categories => {
+                const categorySelect = document.getElementById('category-select');
+                Object.keys(categories).forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categorySelect.appendChild(option);
+                });
+                
+                // Handle category change
+                categorySelect.addEventListener('change', () => {
+                    const subcategorySelect = document.getElementById('subcategory-select');
+                    subcategorySelect.innerHTML = '<option value="">Select subcategory...</option>';
+                    subcategorySelect.disabled = true;
+                    
+                    const category = categorySelect.value;
+                    if (category && categories[category]) {
+                        subcategorySelect.disabled = false;
+                        categories[category].forEach(subcategory => {
+                            const option = document.createElement('option');
+                            option.value = subcategory;
+                            option.textContent = subcategory;
+                            subcategorySelect.appendChild(option);
+                        });
+                    }
+                });
+            });
+        
+        // Handle save
+        document.getElementById('save-wrong-question').addEventListener('click', async () => {
+            const category = document.getElementById('category-select').value;
+            const subcategory = document.getElementById('subcategory-select').value;
+            
+            if (category && subcategory) {
+                await recordQuestion({ category, subcategory });
+                bootstrap.Modal.getInstance(modal).hide();
+            }
+        });
+    }
+    
+    // Show modal
+    new bootstrap.Modal(modal).show();
+}
 
 // Test completion
 document.getElementById('end-test').addEventListener('click', endTest);
@@ -142,15 +268,27 @@ async function endTest() {
         guestBanner.classList.add('d-none');
     }
     
-    // Create timing breakdown list
+    // Create timing breakdown list with wrong question indicators
     const timesList = document.getElementById('question-times');
     timesList.innerHTML = '';
     results.question_times.forEach((time, index) => {
+        const isWrong = wrongQuestions.some(q => q.question === index + 1);
         const item = document.createElement('div');
-        item.className = 'list-group-item';
+        item.className = `list-group-item ${isWrong ? 'list-group-item-danger' : ''}`;
         item.innerHTML = `
-            <span>Question ${index + 1}</span>
-            <span>${time}</span>
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Question ${index + 1}</span>
+                <div>
+                    <span class="me-3">${time}</span>
+                    ${isWrong ? `<span class="badge bg-danger">Wrong</span>` : ''}
+                </div>
+            </div>
+            ${isWrong ? `
+                <small class="text-muted">
+                    Category: ${wrongQuestions.find(q => q.question === index + 1).category} - 
+                    ${wrongQuestions.find(q => q.question === index + 1).subcategory}
+                </small>
+            ` : ''}
         `;
         timesList.appendChild(item);
     });
