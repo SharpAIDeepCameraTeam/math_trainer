@@ -11,91 +11,111 @@
             min-height: 100vh;
             display: flex;
             align-items: center;
-            background: linear-gradient(135deg, #2c3e50, #3498db);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem;
         }
 
         .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%;
             max-width: 400px;
-            width: 90%;
-            margin: 0 auto;
-            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
 
-        .card-header {
-            background: none;
-            border-bottom: none;
-            padding-bottom: 0;
+        .login-header h2 {
+            color: #2d3748;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
         }
 
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 20px;
-            background: #3498db;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2em;
+        .login-header p {
+            color: #718096;
+            font-size: 1rem;
         }
 
-        .form-floating {
-            margin-bottom: 1rem;
+        .form-group {
+            margin-bottom: 1.5rem;
         }
 
-        .form-floating input {
-            border-radius: 10px;
-        }
-
-        .btn-login {
-            border-radius: 10px;
-            padding: 12px;
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
             font-weight: 500;
-            background: #3498db;
-            border: none;
         }
 
-        .btn-login:hover {
-            background: #2980b9;
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 0.75rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .login-button:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .login-footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
         }
 
         .alert {
+            padding: 1rem;
             border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
         }
 
         .alert-error {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
+            background: #fed7d7;
+            color: #c53030;
+            border: 2px solid #feb2b2;
         }
 
-        .alert-success {
-            color: #155724;
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-        }
-
-        .signup-link {
-            text-align: center;
-            margin-top: 20px;
-            color: white;
-        }
-
-        .signup-link a {
-            color: #f1c40f;
-            text-decoration: none;
-        }
-
-        .signup-link a:hover {
-            text-decoration: underline;
+        .alert-info {
+            background: #e6fffa;
+            color: #234e52;
+            border: 2px solid #b2f5ea;
         }
     </style>
 </head>
@@ -104,44 +124,32 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}" role="alert">
+                    <div class="alert alert-{{ category }}">
                         {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="card">
-            <div class="card-header text-center">
-                <div class="logo">
-                    <i class="bi bi-calculator"></i>
-                </div>
-                <h4 class="mb-0">Welcome Back!</h4>
-                <p class="text-muted">Sign in to continue to Math Trainer</p>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('login') }}">
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
-                        <label for="username">Username</label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-                        <label for="password">Password</label>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="remember" name="remember">
-                        <label class="form-check-label" for="remember">
-                            Remember me
-                        </label>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-login w-100">Sign In</button>
-                </form>
-            </div>
+        <div class="login-header">
+            <h2>Welcome Back</h2>
+            <p>Track your math practice progress</p>
         </div>
 
-        <div class="signup-link">
-            Don't have an account? <a href="{{ url_for('signup') }}">Sign up now</a>
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="login-button">Sign In</button>
+        </form>
+
+        <div class="login-footer">
+            <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
         </div>
     </div>
 
