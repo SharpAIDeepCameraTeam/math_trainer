@@ -46,7 +46,7 @@ class User(UserMixin, db.Model):
 
 class TestHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     test_type = db.Column(db.String(20), nullable=False)
     total_questions = db.Column(db.Integer, nullable=False)
     completed_questions = db.Column(db.Integer, nullable=False)
@@ -60,6 +60,14 @@ class ProblemCategory(db.Model):
     name = db.Column(db.String(100), nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey('problem_category.id'), nullable=True)
     subcategories = db.relationship('ProblemCategory', backref=db.backref('parent', remote_side=[id]))
+
+class WrongQuestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    test_id = db.Column(db.Integer, db.ForeignKey('test_history.id'), nullable=False)
+    question_number = db.Column(db.Integer, nullable=False)
+    time_taken = db.Column(db.Integer, nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    subcategory = db.Column(db.String(100), nullable=False)
 
 # Problem categories
 PROBLEM_CATEGORIES = {
@@ -230,6 +238,37 @@ def dashboard_data():
         'test_history': history_data,
         'is_authenticated': current_user.is_authenticated
     })
+
+@app.route('/api/submit-test', methods=['POST'])
+def submit_test():
+    data = request.json
+    
+    # Create test history entry
+    test = TestHistory(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        date_taken=datetime.utcnow(),
+        total_questions=data['totalQuestions'],
+        completed_questions=data['totalQuestions'] - len(data['wrongQuestions']),
+        total_time=sum(data['times']),
+        average_time=sum(data['times']) / len(data['times']) if data['times'] else 0
+    )
+    db.session.add(test)
+    db.session.commit()
+    
+    # Save wrong questions and their categories
+    for question_num in data['wrongQuestions']:
+        category = data['categories'].get(str(question_num), {})
+        wrong = WrongQuestion(
+            test_id=test.id,
+            question_number=question_num,
+            time_taken=data['times'][question_num - 1],
+            category=category.get('main', ''),
+            subcategory=category.get('sub', '')
+        )
+        db.session.add(wrong)
+    
+    db.session.commit()
+    return jsonify({'test_id': test.id})
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():

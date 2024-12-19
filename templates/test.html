@@ -6,24 +6,32 @@
         <div class="col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-body">
-                    <div id="test-container">
-                        <div id="question-display" class="mb-4">
-                            <h3 class="question-text mb-3"></h3>
-                            <div class="input-group mb-3">
-                                <input type="text" id="answer-input" class="form-control" placeholder="Enter your answer">
-                                <button id="submit-answer" class="btn btn-primary">Submit</button>
+                    <div id="test-container" class="text-center">
+                        <div id="active-test" class="mb-4">
+                            <h3 class="mb-4">Question <span id="current-question">1</span></h3>
+                            <div class="timer-display mb-4">
+                                <div id="timer" class="display-4 mb-3">Press SPACE to start</div>
                             </div>
-                            <div class="text-muted">Press SPACE to start timing each question</div>
+                            <div class="text-muted mb-4">Press SPACE to record time and move to next question</div>
+                            <button id="end-test" class="btn btn-danger">
+                                <i class="bi bi-stop-circle me-2"></i>End Test
+                            </button>
                         </div>
-                        <div id="timer" class="mb-3">Time: 0.0s</div>
-                        <div id="progress" class="mb-3">Question 0/0</div>
+                        
                         <div id="test-complete" style="display: none;">
-                            <h3>Test Complete!</h3>
-                            <div id="review-container">
-                                <h4>Review Wrong Answers</h4>
-                                <div id="wrong-answers-list"></div>
+                            <h3 class="mb-4">Test Complete!</h3>
+                            <div class="row justify-content-center">
+                                <div class="col-md-8">
+                                    <div class="form-group mb-4">
+                                        <label class="form-label">Enter wrong question numbers (comma-separated):</label>
+                                        <input type="text" id="wrong-questions" class="form-control" placeholder="e.g., 2,5,8">
+                                    </div>
+                                    
+                                    <div id="wrong-answers-list" class="text-start mb-4"></div>
+                                    
+                                    <button id="submit-test" class="btn btn-success">Save Results</button>
+                                </div>
                             </div>
-                            <button id="submit-test" class="btn btn-success mt-3">Submit Test</button>
                         </div>
                     </div>
                 </div>
@@ -117,11 +125,9 @@ const PROBLEM_CATEGORIES = {
     ]
 };
 
-let currentQuestion = 0;
-let questions = [];
+let currentQuestion = 1;
 let startTime = null;
 let questionTimes = [];
-let wrongAnswers = [];
 let categories = {};
 let waitingForSpace = true;
 
@@ -151,116 +157,100 @@ mainCategorySelect.addEventListener('change', () => {
 
 // Handle spacebar for timing
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && waitingForSpace) {
+    if (e.code === 'Space' && document.getElementById('active-test').style.display !== 'none') {
         e.preventDefault();
-        startTime = Date.now();
-        waitingForSpace = false;
-        document.getElementById('timer').textContent = 'Timer started';
+        
+        if (waitingForSpace) {
+            // Start timing
+            startTime = Date.now();
+            waitingForSpace = false;
+            document.getElementById('timer').textContent = '0.0s';
+            startTimer();
+        } else {
+            // Record time and move to next question
+            const timeSpent = (Date.now() - startTime) / 1000;
+            questionTimes.push(timeSpent);
+            currentQuestion++;
+            document.getElementById('current-question').textContent = currentQuestion;
+            waitingForSpace = true;
+            startTime = null;
+            document.getElementById('timer').textContent = 'Press SPACE to start';
+        }
     }
 });
 
-function startTest() {
-    fetch('/api/get-test-questions')
-        .then(response => response.json())
-        .then(data => {
-            questions = data.questions;
-            showQuestion(0);
-        });
+function startTimer() {
+    if (!startTime || waitingForSpace) return;
+    
+    const updateTimer = () => {
+        if (!startTime || waitingForSpace) return;
+        const elapsed = (Date.now() - startTime) / 1000;
+        document.getElementById('timer').textContent = elapsed.toFixed(1) + 's';
+        requestAnimationFrame(updateTimer);
+    };
+    
+    requestAnimationFrame(updateTimer);
 }
 
-function showQuestion(index) {
-    if (index >= questions.length) {
-        showTestComplete();
-        return;
+document.getElementById('end-test').addEventListener('click', () => {
+    if (startTime) {
+        const timeSpent = (Date.now() - startTime) / 1000;
+        questionTimes.push(timeSpent);
     }
     
-    currentQuestion = index;
-    document.querySelector('.question-text').textContent = questions[index].question;
-    document.getElementById('answer-input').value = '';
-    document.getElementById('progress').textContent = `Question ${index + 1}/${questions.length}`;
-    waitingForSpace = true;
-    startTime = null;
-    document.getElementById('timer').textContent = 'Press SPACE to start';
-}
-
-function checkAnswer() {
-    if (!startTime) {
-        alert('Please press SPACE to start the timer first!');
-        return;
-    }
-
-    const endTime = Date.now();
-    const timeSpent = (endTime - startTime) / 1000;
-    questionTimes.push(timeSpent);
-
-    const userAnswer = document.getElementById('answer-input').value.trim();
-    const correct = userAnswer === questions[currentQuestion].answer;
-
-    if (!correct) {
-        wrongAnswers.push({
-            question: questions[currentQuestion].question,
-            userAnswer: userAnswer,
-            correctAnswer: questions[currentQuestion].answer,
-            index: currentQuestion
-        });
-    }
-
-    showQuestion(currentQuestion + 1);
-}
-
-function showTestComplete() {
-    document.getElementById('question-display').style.display = 'none';
-    document.getElementById('timer').style.display = 'none';
-    document.getElementById('progress').style.display = 'none';
+    document.getElementById('active-test').style.display = 'none';
     document.getElementById('test-complete').style.display = 'block';
+});
 
+document.getElementById('wrong-questions').addEventListener('change', (e) => {
+    const wrongNums = e.target.value.split(',')
+        .map(n => parseInt(n.trim()))
+        .filter(n => !isNaN(n) && n > 0 && n <= currentQuestion);
+    
     const wrongAnswersList = document.getElementById('wrong-answers-list');
-    wrongAnswersList.innerHTML = wrongAnswers.map((wrong, index) => `
-        <div class="wrong-answer-item mb-3">
-            <div class="question mb-2">Question ${wrong.index + 1}: ${wrong.question}</div>
-            <div class="answers mb-2">
-                Your answer: ${wrong.userAnswer}<br>
-                Correct answer: ${wrong.correctAnswer}
-            </div>
+    wrongAnswersList.innerHTML = wrongNums.map((questionNum, index) => `
+        <div class="wrong-answer-item mb-3 p-3 border rounded">
+            <h5>Question ${questionNum}</h5>
+            <div class="mb-2">Time taken: ${questionTimes[questionNum - 1].toFixed(1)}s</div>
             <button class="btn btn-outline-primary btn-sm categorize-btn" 
-                    onclick="showCategoryModal(${index})">
+                    onclick="showCategoryModal(${questionNum})">
                 Categorize Problem
             </button>
-            <div class="selected-category"></div>
+            <div class="selected-category mt-2"></div>
         </div>
     `).join('');
-}
+});
 
-function showCategoryModal(wrongAnswerIndex) {
+function showCategoryModal(questionNum) {
     const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
     document.getElementById('saveCategoryBtn').onclick = () => {
         const mainCat = mainCategorySelect.value;
         const subCat = subCategorySelect.value;
         if (mainCat && subCat) {
-            categories[wrongAnswerIndex] = { main: mainCat, sub: subCat };
-            const categoryDiv = wrongAnswers[wrongAnswerIndex].element
-                .querySelector('.selected-category');
-            categoryDiv.textContent = `${mainCat} - ${subCat}`;
+            categories[questionNum] = { main: mainCat, sub: subCat };
+            const items = document.querySelectorAll('.wrong-answer-item');
+            for (let item of items) {
+                if (item.querySelector('h5').textContent === `Question ${questionNum}`) {
+                    item.querySelector('.selected-category').textContent = `Category: ${mainCat} - ${subCat}`;
+                    break;
+                }
+            }
             modal.hide();
         }
     };
     modal.show();
 }
 
-document.getElementById('submit-answer').addEventListener('click', checkAnswer);
-document.getElementById('answer-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') checkAnswer();
-});
-
 document.getElementById('submit-test').addEventListener('click', () => {
+    const wrongNums = document.getElementById('wrong-questions').value.split(',')
+        .map(n => parseInt(n.trim()))
+        .filter(n => !isNaN(n) && n > 0 && n <= currentQuestion);
+
     const testData = {
-        questions: questions.map((q, i) => ({
-            question: q.question,
-            answer: q.answer,
-            userAnswer: i in wrongAnswers ? wrongAnswers[i].userAnswer : q.answer,
-            time: questionTimes[i],
-            category: categories[i] || null
-        }))
+        totalQuestions: currentQuestion - 1,
+        times: questionTimes,
+        wrongQuestions: wrongNums,
+        categories: categories
     };
 
     fetch('/api/submit-test', {
@@ -275,8 +265,5 @@ document.getElementById('submit-test').addEventListener('click', () => {
         window.location.href = '/results/' + data.test_id;
     });
 });
-
-// Start the test when page loads
-startTest();
 </script>
 {% endblock %}
