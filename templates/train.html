@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Training Session{% endblock %}
+{% block title %}Training{% endblock %}
 
 {% block additional_styles %}
 <style>
@@ -8,170 +8,167 @@
         max-width: 800px;
         margin: 2rem auto;
         padding: 0 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .problem-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         text-align: center;
+        transition: transform 0.3s ease, opacity 0.3s ease;
     }
 
-    .timer {
-        font-size: 5rem;
-        font-weight: bold;
-        color: #2c3e50;
-        margin: 2rem 0;
-        font-family: monospace;
+    .problem-card.fade-out {
+        opacity: 0;
+        transform: translateY(-20px);
     }
 
-    .question-counter {
+    .problem-card.fade-in {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .problem {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        color: #2d3748;
+    }
+
+    .answer {
         font-size: 2rem;
-        color: #7f8c8d;
-        margin-bottom: 2rem;
-    }
-
-    .progress-bar {
-        height: 10px;
-        background: #ecf0f1;
-        border-radius: 5px;
-        margin: 2rem 0;
-        overflow: hidden;
-    }
-
-    .progress-fill {
-        height: 100%;
-        background: #3498db;
-        width: 0;
-        transition: width 0.3s ease;
-    }
-
-    .instructions {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin: 2rem 0;
-        text-align: left;
-    }
-
-    .key-command {
-        display: inline-block;
-        padding: 0.2rem 0.5rem;
-        background: #e9ecef;
-        border-radius: 4px;
-        font-family: monospace;
-        margin: 0 0.2rem;
-    }
-
-    .pulse {
-        animation: pulse-animation 0.5s;
-    }
-
-    @keyframes pulse-animation {
-        0% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.05);
-        }
-        100% {
-            transform: scale(1);
-        }
-    }
-
-    .test-type-select {
-        margin-bottom: 2rem;
-    }
-
-    .test-type-select select {
         padding: 0.5rem 1rem;
-        font-size: 1.1rem;
-        border-radius: 5px;
-        border: 1px solid #ced4da;
-    }
-
-    .start-test {
-        display: inline-block;
-        padding: 1rem 2rem;
-        font-size: 1.2rem;
-        background: #2ecc71;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .start-test:hover {
-        background: #27ae60;
-        transform: translateY(-2px);
-    }
-
-    .test-settings {
-        margin: 2rem 0;
-        text-align: left;
-        padding: 1.5rem;
-        background: #f8f9fa;
+        width: 200px;
+        margin: 0 auto;
+        text-align: center;
+        border: 2px solid #e2e8f0;
         border-radius: 10px;
+        transition: all 0.2s;
     }
 
-    .setting-group {
+    .answer:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
         margin-bottom: 1rem;
     }
 
-    .setting-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: bold;
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
-    .setting-group input[type="number"] {
-        width: 100px;
-        padding: 0.3rem;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-size: 0.875rem;
+    }
+
+    .result-feedback {
+        font-size: 1.25rem;
+        margin-top: 1rem;
+        padding: 0.5rem;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .result-feedback.correct {
+        background: #c6f6d5;
+        color: #2f855a;
+    }
+
+    .result-feedback.incorrect {
+        background: #fed7d7;
+        color: #c53030;
+    }
+
+    .performance-graph {
+        background: white;
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        height: 300px;
+    }
+
+    .key-hint {
+        text-align: center;
+        color: #718096;
+        font-size: 0.875rem;
+        margin-top: 1rem;
+    }
+
+    .key-hint kbd {
+        background: #edf2f7;
+        padding: 0.2rem 0.5rem;
+        border-radius: 5px;
+        border: 1px solid #cbd5e0;
+        font-size: 0.75rem;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    .pulse {
+        animation: pulse 0.5s ease;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="training-container">
-    <div id="setup-view">
-        <h2>Start Training Session</h2>
-        <div class="test-settings">
-            <div class="setting-group">
-                <label for="num-questions">Number of Questions:</label>
-                <input type="number" id="num-questions" value="30" min="1" max="100">
-            </div>
-            <div class="setting-group">
-                <label for="test-type">Test Type:</label>
-                <select id="test-type" class="form-select">
-                    <option value="competition">Competition Practice</option>
-                    <option value="homework">Homework Problems</option>
-                    <option value="exam">Exam Practice</option>
-                    <option value="custom">Custom Practice</option>
-                </select>
-            </div>
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-value" id="correctCount">0</div>
+            <div class="stat-label">Correct Answers</div>
         </div>
-        <button class="start-test" onclick="startTest()">Start Training</button>
+        <div class="stat-card">
+            <div class="stat-value" id="totalTime">0:00</div>
+            <div class="stat-label">Time Elapsed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="accuracy">0%</div>
+            <div class="stat-label">Accuracy</div>
+        </div>
     </div>
 
-    <div id="training-view" style="display: none;">
-        <div class="timer" id="timer">00:00</div>
-        <div class="question-counter">
-            Question <span id="current-question">1</span>/<span id="total-questions">30</span>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progress"></div>
-        </div>
-        
-        <div class="instructions">
-            <h4>Instructions:</h4>
-            <ul>
-                <li>Press <span class="key-command">Space</span> after completing each problem</li>
-                <li>Your time will be tracked automatically</li>
-                <li>After finishing, you can mark wrong questions and categorize mistakes</li>
-                <li>View detailed analytics to track your progress</li>
-            </ul>
-        </div>
+    <div class="performance-graph">
+        <canvas id="performanceChart"></canvas>
+    </div>
+
+    <div class="problem-card" id="problemCard">
+        <div class="problem" id="problem"></div>
+        <input type="text" class="answer" id="answer" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+        <div class="result-feedback" id="feedback"></div>
+    </div>
+
+    <div class="key-hint">
+        Press <kbd>Space</kbd> to submit answer
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='train.js') }}"></script>
 {% endblock %}
