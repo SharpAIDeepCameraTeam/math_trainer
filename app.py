@@ -30,6 +30,7 @@ login_manager.login_view = 'login'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     tests = db.relationship('TestHistory', backref='user', lazy=True)
 
@@ -368,32 +369,45 @@ def login():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
 
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists', 'error')
-            return redirect(url_for('index'))
+        # Basic validation
+        if not username or not email or not password or not confirm_password:
+            flash('All fields are required', 'error')
+            return redirect(url_for('signup'))
 
         if password != confirm_password:
             flash('Passwords do not match', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('signup'))
 
-        if len(password) < 6:
-            flash('Password must be at least 6 characters long', 'error')
-            return redirect(url_for('index'))
+        if len(password) < 4:
+            flash('Password must be at least 4 characters long', 'error')
+            return redirect(url_for('signup'))
 
-        user = User(username=username)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
+        # Check if username already exists
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Username already exists', 'error')
+            return redirect(url_for('signup'))
 
-        login_user(user)
-        flash('Account created successfully!', 'success')
-        return redirect(url_for('index'))
+        # Create new user
+        hashed_password = generate_password_hash(password)
+        new_user = User(username=username, email=email, password=hashed_password)
+        
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred. Please try again.', 'error')
+            return redirect(url_for('signup'))
 
-    return redirect(url_for('index'))
+    return render_template('signup.html')
 
 @app.route('/logout')
 @login_required
