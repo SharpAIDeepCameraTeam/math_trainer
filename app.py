@@ -317,11 +317,25 @@ def login():
         
         if user and user.check_password(password):
             login_user(user)
-            return redirect(url_for('dashboard'))
+            next_page = request.args.get('next')
+            return redirect(next_page if next_page else url_for('dashboard'))
             
         flash('Invalid username or password', 'danger')
     
     return render_template('login.html')
+
+@app.route('/login_modal', methods=['POST'])
+def login_modal():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    user = User.query.filter_by(username=username).first()
+    
+    if user and user.check_password(password):
+        login_user(user)
+        return redirect(url_for('dashboard'))
+        
+    flash('Invalid username or password', 'danger')
+    return redirect(url_for('login'))
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
