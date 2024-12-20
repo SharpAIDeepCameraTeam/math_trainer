@@ -4,9 +4,11 @@ let wrongQuestions = [];
 let currentQuestion = 1;
 let testInProgress = false;
 let totalQuestions = 25;
+let timerInterval = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', handleSpacebar);
+    updateUI();
 });
 
 function handleSpacebar(event) {
@@ -27,34 +29,47 @@ function startTest() {
     wrongQuestions = [];
     currentQuestion = 1;
     updateUI();
+    startTimer();
+}
+
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        document.getElementById('timer').textContent = elapsed;
+    }, 100);
 }
 
 function recordTime() {
+    if (!testInProgress) return;
+    
     const timeTaken = (Date.now() - startTime) / 1000;
     times.push(timeTaken);
     startTime = Date.now();
     currentQuestion++;
-    updateUI();
     
     if (currentQuestion > totalQuestions) {
         endTest();
+    } else {
+        updateUI();
+        startTimer();
     }
 }
 
 function updateUI() {
     document.getElementById('questionNumber').textContent = currentQuestion;
-    document.getElementById('timer').textContent = '0.0';
-    
-    // Update chart if it exists
-    if (window.timeChart) {
-        window.timeChart.data.labels = times.map((_, i) => `Q${i+1}`);
-        window.timeChart.data.datasets[0].data = times;
-        window.timeChart.update();
+    if (!testInProgress) {
+        document.getElementById('timer').textContent = '0.0';
+        document.getElementById('instructions').textContent = 'Press spacebar to start the test';
+    } else {
+        document.getElementById('instructions').textContent = 'Press spacebar after completing each problem';
     }
 }
 
 function endTest() {
     testInProgress = false;
+    if (timerInterval) clearInterval(timerInterval);
     
     // Show wrong questions input
     const wrongInput = prompt('Enter wrong question numbers (comma-separated):');
