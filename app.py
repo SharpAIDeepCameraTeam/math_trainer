@@ -1,91 +1,28 @@
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_wtf.csrf import CSRFProtect
-import time
-from datetime import datetime, timedelta
+from models import db, User, TestHistory
 import os
 import json
-import logging
-from collections import defaultdict
-import hashlib
+from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
 
-# Initialize CSRF protection
-csrf = CSRFProtect(app)
-
-# Add MD5 filter to Jinja2
-@app.template_filter('md5')
-def md5_filter(s):
-    return hashlib.md5(s.encode()).hexdigest()
-
-# Database configuration
-database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    # Handle Postgres URL format for SQLAlchemy
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-else:
-    # Use SQLite in development
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///math_trainer.db'
-
+# Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key_123')  # Change in production
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///math_trainer.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+# Initialize extensions
+csrf = CSRFProtect(app)
+db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Database Models
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    tests = db.relationship('TestHistory', backref='user', lazy=True)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'username': self.username,
-            'created_at': self.created_at.isoformat() if self.created_at else None
-        }
-
-class TestHistory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    test_type = db.Column(db.String(20), nullable=False)
-    total_questions = db.Column(db.Integer, nullable=False)
-    completed_questions = db.Column(db.Integer, nullable=False)
-    total_time = db.Column(db.Integer, nullable=False)  # in seconds
-    question_times = db.Column(db.Text, nullable=False)  # JSON string of times
-    wrong_questions = db.Column(db.Text, nullable=True)  # JSON string of wrong question data
-    categories = db.Column(db.Text, nullable=True)  # JSON string of categories
-    date_taken = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-class ProblemCategory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    parent_id = db.Column(db.Integer, db.ForeignKey('problem_category.id'), nullable=True)
-    subcategories = db.relationship('ProblemCategory', backref=db.backref('parent', remote_side=[id]))
-
-class WrongQuestion(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    test_id = db.Column(db.Integer, db.ForeignKey('test_history.id'), nullable=False)
-    question_number = db.Column(db.Integer, nullable=False)
-    time_taken = db.Column(db.Integer, nullable=False)
-    category = db.Column(db.String(100), nullable=False)
-    subcategory = db.Column(db.String(100), nullable=False)
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Problem categories
 PROBLEM_CATEGORIES = {
@@ -153,10 +90,6 @@ TEST_CONFIGS = {
 
 # Active tests in memory
 active_tests = {}
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 def calculate_averages(times):
     """Calculate different averages from question times"""
@@ -305,32 +238,42 @@ def submit_test():
     return jsonify({'test_id': test.id})
 
 @app.route('/api/save-category', methods=['POST'])
+@login_required
 def save_category():
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'Not authenticated'}), 401
-        
-    data = request.get_json()
-    test_id = data.get('testId')
+    data = request.json
+    test_id = data.get('test_id')
+    question_number = data.get('question_number')
+    main_category = data.get('main_category')
+    sub_category = data.get('sub_category')
     
-    test = TestHistory.query.get(test_id)
-    if not test or test.user_id != current_user.id:
-        return jsonify({'error': 'Test not found'}), 404
-        
-    # Update categories in the database
-    if not test.categories:
-        categories = {}
-    else:
-        categories = json.loads(test.categories)
-        
-    categories[str(data['questionNumber'])] = {
-        'main': data['mainCategory'],
-        'sub': data['subCategory']
-    }
+    if not all([test_id, question_number, main_category]):
+        return jsonify({'error': 'Missing required fields'}), 400
     
-    test.categories = json.dumps(categories)
-    db.session.commit()
+    test = TestHistory.query.get_or_404(test_id)
     
-    return jsonify({'success': True})
+    if test.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        # Load existing categories or create new dict
+        categories = json.loads(test.categories) if test.categories else {}
+        
+        # Update category for this question
+        categories[str(question_number)] = {
+            'main': main_category,
+            'sub': sub_category
+        }
+        
+        # Save back to database
+        test.categories = json.dumps(categories)
+        db.session.commit()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving category: {str(e)}")
+        return jsonify({'error': 'Failed to save category'}), 500
 
 @app.route('/api/export-test/<int:test_id>')
 @login_required
@@ -371,6 +314,17 @@ def export_test(test_id):
         'completed_questions': test.completed_questions,
         'questions': questions
     })
+
+@app.route('/api/get-categories/<int:test_id>')
+@login_required
+def get_categories(test_id):
+    test = TestHistory.query.get_or_404(test_id)
+    
+    if test.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    categories = json.loads(test.categories) if test.categories else {}
+    return jsonify({'categories': categories})
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -443,73 +397,114 @@ def health_check():
     return jsonify({"status": "healthy"}), 200
 
 @app.route('/analytics')
+@login_required
 def analytics():
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-        
-    # Get all tests
-    tests = TestHistory.query.filter_by(user_id=current_user.id)\
-        .order_by(TestHistory.date_taken.desc())\
-        .all()
-        
-    # Calculate analytics
-    analytics_data = {
-        'total_tests': len(tests),
-        'total_questions': sum(test.total_questions for test in tests),
-        'average_time': round(sum(test.total_time for test in tests) / len(tests), 2) if tests else 0,
-        'tests': tests
-    }
-    
-    return render_template('analytics.html', **analytics_data)
+    return render_template('analytics.html', user=current_user)
 
-def get_analytics_data(user_id):
-    test_history = TestHistory.query.filter_by(user_id=user_id).all()
+@app.route('/api/analytics/data')
+@login_required
+def get_analytics_data():
+    # Get all tests for the current user
+    tests = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).all()
+    
+    if not tests:
+        return jsonify({
+            'error': 'No test data available'
+        }), 404
     
     # Prepare analytics data
-    accuracy_data = []
-    time_data = []
-    category_data = defaultdict(lambda: {'correct': 0, 'total': 0})
-    
-    for test in test_history:
-        # Add accuracy point
-        accuracy_data.append({
-            'date': test.date_taken.strftime('%Y-%m-%d'),
-            'accuracy': (test.total_questions - len(json.loads(test.wrong_questions))) / test.total_questions * 100
-        })
-        
-        # Add time point
-        time_data.append({
-            'date': test.date_taken.strftime('%Y-%m-%d'),
-            'time': test.total_time
-        })
-        
-        # Update category stats
-        wrong_questions = json.loads(test.wrong_questions)
-        for q in wrong_questions:
-            category = q.get('category', 'Unknown')
-            category_data[category]['total'] += 1
-        
-        # Add correct answers to categories
-        total_per_category = test.total_questions / len(category_data)
-        for category in category_data:
-            category_data[category]['total'] += total_per_category
-            category_data[category]['correct'] += total_per_category - category_data[category]['total']
-
-    # Convert category data to lists for charts
-    categories = list(category_data.keys())
-    accuracy_by_category = [
-        (stats['correct'] / stats['total'] * 100) if stats['total'] > 0 else 0
-        for stats in category_data.values()
-    ]
-
-    return {
-        'accuracy_trend': accuracy_data,
-        'time_trend': time_data,
-        'categories': {
-            'names': categories,
-            'accuracy': accuracy_by_category
+    analytics_data = {
+        'totalTests': len(tests),
+        'averageTime': sum(test.total_time for test in tests) / len(tests),
+        'totalQuestions': sum(test.total_questions for test in tests),
+        'completedQuestions': sum(test.completed_questions for test in tests),
+        'testDates': [],
+        'testTimes': [],
+        'wrongQuestionsByCategory': {},
+        'timeByCategory': {},
+        'recentTests': [],
+        'improvementTrend': [],
+        'categoryBreakdown': {},
+        'timeDistribution': {
+            'under30s': 0,
+            '30to60s': 0,
+            '60to90s': 0,
+            'over90s': 0
         }
     }
+    
+    # Process each test
+    for test in tests:
+        # Basic test data
+        test_date = test.date_taken.strftime('%Y-%m-%d')
+        analytics_data['testDates'].append(test_date)
+        analytics_data['testTimes'].append(test.total_time)
+        
+        # Process question times
+        times = json.loads(test.question_times)
+        for time in times:
+            if time < 30:
+                analytics_data['timeDistribution']['under30s'] += 1
+            elif time < 60:
+                analytics_data['timeDistribution']['30to60s'] += 1
+            elif time < 90:
+                analytics_data['timeDistribution']['60to90s'] += 1
+            else:
+                analytics_data['timeDistribution']['over90s'] += 1
+        
+        # Process categories
+        if test.categories:
+            categories = json.loads(test.categories)
+            for q_num, cat_data in categories.items():
+                main_cat = cat_data.get('main')
+                if main_cat:
+                    # Update wrong questions by category
+                    if main_cat not in analytics_data['wrongQuestionsByCategory']:
+                        analytics_data['wrongQuestionsByCategory'][main_cat] = 0
+                    analytics_data['wrongQuestionsByCategory'][main_cat] += 1
+                    
+                    # Update time by category
+                    if main_cat not in analytics_data['timeByCategory']:
+                        analytics_data['timeByCategory'][main_cat] = []
+                    analytics_data['timeByCategory'][main_cat].append(times[int(q_num) - 1])
+                    
+                    # Update category breakdown
+                    if main_cat not in analytics_data['categoryBreakdown']:
+                        analytics_data['categoryBreakdown'][main_cat] = {
+                            'total': 0,
+                            'subcategories': {}
+                        }
+                    analytics_data['categoryBreakdown'][main_cat]['total'] += 1
+                    
+                    sub_cat = cat_data.get('sub')
+                    if sub_cat:
+                        if sub_cat not in analytics_data['categoryBreakdown'][main_cat]['subcategories']:
+                            analytics_data['categoryBreakdown'][main_cat]['subcategories'][sub_cat] = 0
+                        analytics_data['categoryBreakdown'][main_cat]['subcategories'][sub_cat] += 1
+        
+        # Add to recent tests
+        if len(analytics_data['recentTests']) < 5:
+            analytics_data['recentTests'].append({
+                'date': test_date,
+                'total_time': test.total_time,
+                'completed': test.completed_questions,
+                'total': test.total_questions,
+                'wrong': len(json.loads(test.wrong_questions)) if test.wrong_questions else 0
+            })
+    
+    # Calculate improvement trend (average time per question for each test)
+    for test in tests:
+        avg_time = test.total_time / test.completed_questions if test.completed_questions > 0 else 0
+        analytics_data['improvementTrend'].append({
+            'date': test.date_taken.strftime('%Y-%m-%d'),
+            'avgTime': avg_time
+        })
+    
+    # Calculate averages for time by category
+    for category, times in analytics_data['timeByCategory'].items():
+        analytics_data['timeByCategory'][category] = sum(times) / len(times)
+    
+    return jsonify(analytics_data)
 
 with app.app_context():
     try:
