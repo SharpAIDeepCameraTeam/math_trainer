@@ -55,8 +55,18 @@ let currentProblemNum = null;
 
 function initializeResultsPage() {
     const mainCategorySelect = document.getElementById('mainCategory');
-    if (!mainCategorySelect) return; // Exit if not on results page
+    if (!mainCategorySelect) return;
     
+    // Populate main categories
+    mainCategorySelect.innerHTML = '<option value="">Select category...</option>';
+    Object.keys(PROBLEM_CATEGORIES).forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        mainCategorySelect.appendChild(option);
+    });
+    
+    // Add event listener for main category changes
     mainCategorySelect.addEventListener('change', function() {
         const mainCategory = this.value;
         const subSelect = document.getElementById('subCategory');
@@ -76,6 +86,11 @@ function initializeResultsPage() {
 function showCategoryModal(questionNum) {
     currentProblemNum = questionNum;
     const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+    
+    // Reset selections
+    document.getElementById('mainCategory').value = '';
+    document.getElementById('subCategory').innerHTML = '<option value="">Select subcategory...</option>';
+    
     modal.show();
 }
 
@@ -105,7 +120,8 @@ function saveCategory() {
         fetch('/api/save-category', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
             body: JSON.stringify({
                 testId: testId,
@@ -113,8 +129,58 @@ function saveCategory() {
                 mainCategory: mainCategory,
                 subCategory: subCategory
             })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Update UI to show success
+                questionElement.classList.add('categorized');
+                
+                // Export test data
+                exportTestData(testId);
+            } else {
+                throw new Error('Failed to save category');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving category. Please try again.');
         });
     }
     
     bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+}
+
+function exportTestData(testId) {
+    fetch(`/api/export-test/${testId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Create CSV content
+            let csvContent = 'Question Number,Time Taken,Wrong Answer,Category,Subcategory\n';
+            data.questions.forEach(q => {
+                csvContent += `${q.number},${q.time},${q.wrong},${q.category || ''},${q.subcategory || ''}\n`;
+            });
+            
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `test_${testId}_results.csv`;
+            
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('Error exporting test data:', error);
+            alert('Error exporting test data. Please try again.');
+        });
 }

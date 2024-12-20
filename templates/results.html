@@ -2,6 +2,31 @@
 
 {% block title %}Test Results{% endblock %}
 
+{% block styles %}
+<style>
+.wrong-question {
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.wrong-question.categorized {
+    border-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.wrong-question .selected-category {
+    margin-bottom: 0.5rem;
+}
+
+.wrong-question.categorized .selected-category {
+    color: #28a745;
+    font-weight: 500;
+}
+</style>
+{% endblock %}
+
 {% block additional_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
 {% endblock %}

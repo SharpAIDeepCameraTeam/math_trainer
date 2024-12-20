@@ -332,6 +332,46 @@ def save_category():
     
     return jsonify({'success': True})
 
+@app.route('/api/export-test/<int:test_id>')
+@login_required
+def export_test(test_id):
+    test = TestHistory.query.get_or_404(test_id)
+    
+    if test.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    # Get test data
+    times = json.loads(test.question_times)
+    wrong_questions = json.loads(test.wrong_questions) if test.wrong_questions else []
+    categories = json.loads(test.categories) if test.categories else {}
+    
+    # Prepare questions data
+    questions = []
+    for i in range(len(times)):
+        question_num = i + 1
+        question_data = {
+            'number': question_num,
+            'time': times[i],
+            'wrong': question_num in wrong_questions,
+            'category': None,
+            'subcategory': None
+        }
+        
+        # Add category data if available
+        if str(question_num) in categories:
+            cat_data = categories[str(question_num)]
+            question_data['category'] = cat_data.get('main')
+            question_data['subcategory'] = cat_data.get('sub')
+            
+        questions.append(question_data)
+    
+    return jsonify({
+        'test_id': test_id,
+        'total_time': test.total_time,
+        'completed_questions': test.completed_questions,
+        'questions': questions
+    })
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
