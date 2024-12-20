@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_wtf.csrf import CSRFProtect
 import time
 from datetime import datetime, timedelta
 import os
@@ -12,6 +13,9 @@ import hashlib
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
 
 # Add MD5 filter to Jinja2
 @app.template_filter('md5')
@@ -279,33 +283,25 @@ def dashboard_data():
 
 @app.route('/api/submit-test', methods=['POST'])
 def submit_test():
-    data = request.json
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Not authenticated'}), 401
+        
+    data = request.get_json()
     
-    # Create test history entry
+    # Create test record
     test = TestHistory(
-        user_id=current_user.id if current_user.is_authenticated else None,
-        date_taken=datetime.utcnow(),
-        total_questions=data['totalQuestions'],
-        completed_questions=data['totalQuestions'] - len(data['wrongQuestions']),
-        total_time=sum(data['times']),
-        average_time=sum(data['times']) / len(data['times']) if data['times'] else 0
+        user_id=current_user.id,
+        test_type='standard',
+        total_questions=len(data['times']),
+        completed_questions=len(data['times']),
+        total_time=int(sum(data['times'])),
+        question_times=json.dumps(data['times']),
+        wrong_questions=json.dumps(data['wrongQuestions'])
     )
+    
     db.session.add(test)
     db.session.commit()
     
-    # Save wrong questions and their categories
-    for question_num in data['wrongQuestions']:
-        category = data['categories'].get(str(question_num), {})
-        wrong = WrongQuestion(
-            test_id=test.id,
-            question_number=question_num,
-            time_taken=data['times'][question_num - 1],
-            category=category.get('main', ''),
-            subcategory=category.get('sub', '')
-        )
-        db.session.add(wrong)
-    
-    db.session.commit()
     return jsonify({'test_id': test.id})
 
 @app.route('/api/save-category', methods=['POST'])

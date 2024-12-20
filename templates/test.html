@@ -139,58 +139,31 @@
 
             <!-- Test Interface -->
             <div id="test-interface" class="card" style="display: none;">
-                <div class="card-body">
-                    <div id="test-container" class="text-center">
-                        <div id="active-test" class="mb-4">
-                            <div class="circle-timer">
-                                <canvas id="timer-canvas"></canvas>
-                                <div class="timer-text">
-                                    <div class="time" id="timer">Press SPACE to start</div>
-                                    <div class="question">Question <span id="current-question">1</span></div>
-                                </div>
-                            </div>
-
-                            <div class="mt-4">
-                                <div class="chart-container" style="position: relative; height: 200px;">
-                                    <canvas id="timeChart"></canvas>
-                                </div>
-                            </div>
-
-                            <div id="review-buttons" class="mt-4" style="display: none;">
-                                <p class="text-muted mb-3">Review your answers before finishing</p>
-                                <button id="finish-test" class="btn btn-success">
-                                    <i class="bi bi-check-circle me-2"></i>Finish Test
-                                </button>
-                            </div>
-
-                            <button id="end-test" class="btn btn-danger mt-4">
-                                <i class="bi bi-stop-circle me-2"></i>End Test Early
-                            </button>
+                <div class="card-body text-center">
+                    <h2>Math Speed Test</h2>
+                    <p class="lead">Press spacebar to start and after completing each question.</p>
+                    
+                    <div class="circle-timer mt-4">
+                        <canvas id="timerCanvas"></canvas>
+                        <div class="timer-text">
+                            <div class="time" id="timer">0.0</div>
+                            <div class="question">Question <span id="questionNumber">1</span>/25</div>
                         </div>
-                        
-                        <div id="test-complete" style="display: none;">
-                            <h3 class="mb-4">Test Complete!</h3>
-                            
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <div class="chart-container" style="position: relative; height:300px;">
-                                        <canvas id="finalTimeChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row justify-content-center">
-                                <div class="col-md-8">
-                                    <div class="form-group mb-4">
-                                        <label class="form-label">Enter wrong question numbers (comma-separated):</label>
-                                        <input type="text" id="wrong-questions" class="form-control" placeholder="e.g., 2,5,8">
-                                    </div>
-                                    
-                                    <div id="wrong-answers-list" class="text-start mb-4"></div>
-                                    
-                                    <button id="submit-test" class="btn btn-success">Save Results</button>
-                                </div>
-                            </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <canvas id="timeChart"></canvas>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <h5>Instructions</h5>
+                            <ol class="mb-0 text-start">
+                                <li>Press spacebar to start the test</li>
+                                <li>Solve each math problem</li>
+                                <li>Press spacebar after completing each problem</li>
+                                <li>After 25 problems, enter any wrong question numbers</li>
+                            </ol>
                         </div>
                     </div>
                 </div>
@@ -308,7 +281,7 @@ let startTime = null;
 let questionStartTime = null;
 let questionTimes = [];
 let categories = {};
-let canvas = document.getElementById('timer-canvas');
+let canvas = document.getElementById('timerCanvas');
 let ctx = canvas.getContext('2d');
 let chart = null;
 let totalQuestions = 30;
@@ -477,7 +450,7 @@ document.addEventListener('keydown', (e) => {
             if (currentQuestion < totalQuestions) {
                 // Start timing next question
                 currentQuestion++;
-                document.getElementById('current-question').textContent = currentQuestion;
+                document.getElementById('questionNumber').textContent = currentQuestion;
                 questionStartTime = Date.now();
                 
                 // Update chart with new data
@@ -487,7 +460,7 @@ document.addEventListener('keydown', (e) => {
                 pulseTimer();
             } else {
                 // Show review state
-                document.getElementById('current-question').textContent = 'Review';
+                document.getElementById('questionNumber').textContent = 'Review';
                 document.getElementById('review-buttons').style.display = 'block';
                 document.getElementById('end-test').style.display = 'none';
             }
@@ -623,5 +596,74 @@ document.getElementById('submit-test').addEventListener('click', () => {
         window.location.href = '/results/' + data.test_id;
     });
 });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize timer canvas
+        const canvas = document.getElementById('timerCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 300;
+        canvas.height = 300;
+        
+        function drawCircle(percentage) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background circle
+            ctx.beginPath();
+            ctx.arc(150, 150, 140, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            
+            // Draw progress
+            ctx.beginPath();
+            ctx.arc(150, 150, 140, -Math.PI/2, (-Math.PI/2) + (2 * Math.PI * percentage));
+            ctx.strokeStyle = '#0d6efd';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+        }
+        
+        // Initialize time chart
+        const chartCtx = document.getElementById('timeChart').getContext('2d');
+        window.timeChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Time per Question',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Time (seconds)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Question Number'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Start timer update
+        setInterval(function() {
+            if (startTime) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('timer').textContent = elapsed;
+                drawCircle(elapsed % 60 / 60); // Circle completes every minute
+            }
+        }, 100);
+    });
 </script>
 {% endblock %}
