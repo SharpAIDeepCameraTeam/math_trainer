@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-4" {% if test %}data-test-id="{{ test.id }}"{% endif %}>
     <h2>Test Results</h2>
     
     {% if test %}
@@ -87,7 +87,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="saveCategory({{ test.id if test else 0 }})">Save</button>
+                <button type="button" class="btn btn-primary" onclick="saveCategory()">Save</button>
             </div>
         </div>
     </div>
@@ -99,7 +99,7 @@
 <script src="{{ url_for('static', filename='results.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        initializeResultsPage({{ test.id if test else 0 }});
+        initializeResultsPage();
     });
 </script>
 {% endblock %}

@@ -53,8 +53,11 @@ const PROBLEM_CATEGORIES = {
 
 let currentProblemNum = null;
 
-function initializeResultsPage(testId) {
-    document.getElementById('mainCategory').addEventListener('change', function() {
+function initializeResultsPage() {
+    const mainCategorySelect = document.getElementById('mainCategory');
+    if (!mainCategorySelect) return; // Exit if not on results page
+    
+    mainCategorySelect.addEventListener('change', function() {
         const mainCategory = this.value;
         const subSelect = document.getElementById('subCategory');
         subSelect.innerHTML = '<option value="">Select subcategory...</option>';
@@ -76,12 +79,20 @@ function showCategoryModal(questionNum) {
     modal.show();
 }
 
-function saveCategory(testId) {
+function saveCategory() {
     const mainCategory = document.getElementById('mainCategory').value;
     const subCategory = document.getElementById('subCategory').value;
     
     if (!mainCategory || !subCategory) {
         alert('Please select both a category and subcategory');
+        return;
+    }
+    
+    const container = document.querySelector('.container');
+    const testId = container.dataset.testId;
+    
+    if (!testId) {
+        console.error('Test ID not found');
         return;
     }
     
