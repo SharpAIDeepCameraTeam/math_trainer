@@ -4,6 +4,34 @@
 
 {% block content %}
 <div class="container mt-4">
+    {% if guest %}
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <h2>Welcome to Math Trainer!</h2>
+                    <p class="lead mb-4">Practice your math skills with timed tests and track your progress.</p>
+                    
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="d-grid gap-3">
+                                <a href="{{ url_for('test') }}" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-play-circle-fill me-2"></i>Try a Test
+                                </a>
+                                <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>Login to Track Progress
+                                </a>
+                                <a href="{{ url_for('signup') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-person-plus me-2"></i>Create Account
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
     <div class="row">
         <div class="col-md-12">
             <div class="row mb-4">
@@ -70,10 +98,12 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
+{% if not guest %}
 <script>
 // Fetch dashboard data
 fetch('/api/analytics/data')
@@ -104,4 +134,5 @@ fetch('/api/analytics/data')
         console.error('Error loading dashboard data:', error);
     });
 </script>
+{% endif %}
 {% endblock %}

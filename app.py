@@ -25,9 +25,16 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 @app.route('/')
-@login_required
 def dashboard():
+    if not current_user.is_authenticated:
+        return render_template('dashboard.html', guest=True)
     return render_template('dashboard.html')
+
+@app.route('/test')
+def test():
+    if not current_user.is_authenticated:
+        return render_template('test.html', guest=True)
+    return render_template('test.html')
 
 @app.route('/analytics')
 @login_required
@@ -116,11 +123,6 @@ def analytics():
                          improvement_trend=improvement_trend,
                          time_distribution=time_distribution,
                          recent_tests=recent_tests)
-
-@app.route('/test')
-@login_required
-def test():
-    return render_template('test.html')
 
 @app.route('/api/analytics/data')
 @login_required
