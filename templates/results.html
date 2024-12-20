@@ -7,96 +7,55 @@
 {% endblock %}
 
 {% block content %}
-<div class="results-container">
-    <div class="container">
-        <!-- Results Header -->
-        <div class="results-header">
-            <h2>Test Results</h2>
-            <div class="test-info">
-                <span id="testType">Loading...</span> • 
-                <span id="testDate">Loading...</span>
-            </div>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-2">
-                <div class="stats-card">
-                    <h4>Total Questions</h4>
-                    <div class="stat-value" id="totalQuestions">--</div>
+<div class="container mt-4">
+    <h2>Test Results</h2>
+    
+    {% if test %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Summary</h5>
+            <p>Total Time: {{ test.total_time }}s</p>
+            <p>Questions Completed: {{ test.completed_questions }}/{{ test.total_questions }}</p>
+            
+            <h5 class="mt-4">Performance Breakdown</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table">
+                        <tr>
+                            <td>First 10 Problems Average:</td>
+                            <td>{{ averages.first_10 }}s</td>
+                        </tr>
+                        <tr>
+                            <td>Second 10 Problems Average:</td>
+                            <td>{{ averages.second_10 }}s</td>
+                        </tr>
+                        <tr>
+                            <td>Final 5 Problems Average:</td>
+                            <td>{{ averages.final_5 }}s</td>
+                        </tr>
+                        <tr>
+                            <td>Overall Average:</td>
+                            <td>{{ averages.overall }}s</td>
+                        </tr>
+                    </table>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="stats-card">
-                    <h4>Correct Answers</h4>
-                    <div class="stat-value" id="correctAnswers">--</div>
+            
+            <h5 class="mt-4">Wrong Questions</h5>
+            <div id="wrongQuestions">
+                {% for q in wrong_questions %}
+                <div class="wrong-question mb-3" data-question="{{ q.number }}">
+                    <p>Question {{ q.number }} (Time: {{ q.time }}s)</p>
+                    <p class="selected-category text-muted">Category: Not categorized</p>
+                    <button class="btn btn-sm btn-outline-primary" onclick="showCategoryModal('{{ q.number }}')">
+                        Select Category
+                    </button>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <div class="stats-card">
-                    <h4>Accuracy</h4>
-                    <div class="stat-value" id="accuracy">--%</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h4>Total Time</h4>
-                    <div class="stat-value" id="totalTime">--</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h4>Avg Time/Question</h4>
-                    <div class="stat-value" id="avgTime">--</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Time Chart -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="chart-card">
-                    <h3>Time per Question</h3>
-                    <div class="chart-container">
-                        <canvas id="timeChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Wrong Questions -->
-        <div class="row">
-            <div class="col-12">
-                <div class="wrong-questions">
-                    <h3>Questions to Review</h3>
-                    <div id="wrongQuestionsList">
-                        {% if test %}
-                        <div class="card mb-4">
-                            <div class="card-body">
-                                <h5 class="card-title">Summary</h5>
-                                <p>Total Time: {{ test.total_time }}s</p>
-                                <p>Questions Completed: {{ test.completed_questions }}/{{ test.total_questions }}</p>
-                                
-                                <h5 class="mt-4">Wrong Questions</h5>
-                                <div id="wrongQuestions">
-                                    {% for q in wrong_questions %}
-                                    <div class="wrong-question mb-3" data-question="{{ q.number }}">
-                                        <p>Question {{ q.number }} (Time: {{ q.time }}s)</p>
-                                        <p class="selected-category text-muted">Category: Not categorized</p>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="showCategoryModal({{ q.number }})">
-                                            Select Category
-                                        </button>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- Category Modal -->
@@ -224,6 +183,20 @@ function saveCategory() {
     if (questionElement) {
         questionElement.querySelector('.selected-category').textContent = 
             `Category: ${mainCategory} - ${subCategory}`;
+            
+        // Save to database
+        fetch('/api/save-category', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                testId: {{ test.id }},
+                questionNumber: currentProblemNum,
+                mainCategory: mainCategory,
+                subCategory: subCategory
+            })
+        });
     }
     
     bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();

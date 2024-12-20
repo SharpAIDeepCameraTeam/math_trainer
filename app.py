@@ -66,6 +66,7 @@ class TestHistory(db.Model):
     total_time = db.Column(db.Integer, nullable=False)  # in seconds
     question_times = db.Column(db.Text, nullable=False)  # JSON string of times
     wrong_questions = db.Column(db.Text, nullable=True)  # JSON string of wrong question data
+    categories = db.Column(db.Text, nullable=True)  # JSON string of categories
     date_taken = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 class ProblemCategory(db.Model):
@@ -153,18 +154,33 @@ active_tests = {}
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def calculate_averages(times):
+    """Calculate different averages from question times"""
+    times = [float(t) for t in times]
+    averages = {
+        'first_10': round(sum(times[:10]) / min(10, len(times)), 2) if times else 0,
+        'second_10': round(sum(times[10:20]) / min(10, max(0, len(times)-10)), 2) if len(times) > 10 else 0,
+        'final_5': round(sum(times[-5:]) / min(5, len(times)), 2) if times else 0,
+        'overall': round(sum(times) / len(times), 2) if times else 0
+    }
+    return averages
+
 @app.route('/')
 def index():
     return render_template('dashboard.html')
 
 @app.route('/dashboard')
 def dashboard():
-    # Get test history for logged in user, or show empty state if not logged in
-    test_history = []
-    if current_user.is_authenticated:
-        test_history = TestHistory.query.filter_by(user_id=current_user.id).order_by(TestHistory.date_taken.desc()).limit(10).all()
-    
-    return render_template('dashboard.html', test_history=test_history)
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+        
+    # Get recent tests
+    recent_tests = TestHistory.query.filter_by(user_id=current_user.id)\
+        .order_by(TestHistory.date_taken.desc())\
+        .limit(10)\
+        .all()
+        
+    return render_template('dashboard.html', recent_tests=recent_tests)
 
 @app.route('/train')
 def train():
@@ -183,24 +199,21 @@ def results(test_id):
     if not test or test.user_id != current_user.id:
         abort(404)
         
+    # Calculate averages
+    times = json.loads(test.question_times)
+    averages = calculate_averages(times)
+        
+    # Get wrong questions
     wrong_questions = []
     if test.wrong_questions:
         wrong_data = json.loads(test.wrong_questions)
-        times = json.loads(test.question_times)
         for num in wrong_data:
             wrong_questions.append({
                 'number': num,
                 'time': times[int(num)-1]
             })
     
-    return render_template('results.html', test=test, wrong_questions=wrong_questions)
-
-@app.route('/analytics')
-def analytics():
-    analytics_data = {}
-    if current_user.is_authenticated:
-        analytics_data = get_analytics_data(current_user.id)
-    return render_template('analytics.html', **analytics_data)
+    return render_template('results.html', test=test, wrong_questions=wrong_questions, averages=averages)
 
 @app.route('/api/record-question', methods=['POST'])
 def record_question():
@@ -295,6 +308,34 @@ def submit_test():
     db.session.commit()
     return jsonify({'test_id': test.id})
 
+@app.route('/api/save-category', methods=['POST'])
+def save_category():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Not authenticated'}), 401
+        
+    data = request.get_json()
+    test_id = data.get('testId')
+    
+    test = TestHistory.query.get(test_id)
+    if not test or test.user_id != current_user.id:
+        return jsonify({'error': 'Test not found'}), 404
+        
+    # Update categories in the database
+    if not test.categories:
+        categories = {}
+    else:
+        categories = json.loads(test.categories)
+        
+    categories[str(data['questionNumber'])] = {
+        'main': data['mainCategory'],
+        'sub': data['subCategory']
+    }
+    
+    test.categories = json.dumps(categories)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -364,6 +405,26 @@ def logout():
 @app.route('/health')
 def health_check():
     return jsonify({"status": "healthy"}), 200
+
+@app.route('/analytics')
+def analytics():
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+        
+    # Get all tests
+    tests = TestHistory.query.filter_by(user_id=current_user.id)\
+        .order_by(TestHistory.date_taken.desc())\
+        .all()
+        
+    # Calculate analytics
+    analytics_data = {
+        'total_tests': len(tests),
+        'total_questions': sum(test.total_questions for test in tests),
+        'average_time': round(sum(test.total_time for test in tests) / len(tests), 2) if tests else 0,
+        'tests': tests
+    }
+    
+    return render_template('analytics.html', **analytics_data)
 
 def get_analytics_data(user_id):
     test_history = TestHistory.query.filter_by(user_id=user_id).all()
