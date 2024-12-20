@@ -1,13 +1,10 @@
 let testId = null;
 let timerInterval = null;
-let startTime = 0;
-let questionStartTime = 0;
-let currentQuestion = 0;
-let totalQuestions = 25;
-let times = [];
-let testStarted = false;
-let testFinished = false;
+let startTime = null;
+let timeLimit = null;
+let speedChart = null;
 let wrongQuestions = [];
+let currentQuestion = 0;
 
 // Screen management
 const screens = {
@@ -43,13 +40,8 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
     const data = await response.json();
     testId = data.test_id;
     timeLimit = testData.timeLimit * 60; // Convert to seconds
-    startTime = 0;
-    questionStartTime = 0;
+    startTime = Date.now();
     currentQuestion = 0;
-    totalQuestions = testData.numQuestions;
-    times = [];
-    testStarted = false;
-    testFinished = false;
     wrongQuestions = [];
     
     // Update UI
@@ -68,6 +60,9 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
         instructions, 
         document.querySelector('.timer-container')
     );
+    
+    // Start timer
+    startTimer();
     
     // Show test screen
     showScreen('test');
@@ -110,140 +105,59 @@ function getTimerColor(progress) {
 document.addEventListener('keydown', async (e) => {
     if (screens.test.classList.contains('d-none')) return;
     
-    if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault(); // Prevent scrolling
-        handleSpacebar();
+    if (e.code === 'Space') {
+        e.preventDefault();
+        await recordQuestion();
     } else if (e.code === 'KeyW') {
         e.preventDefault();
         showWrongQuestionModal();
     }
 });
 
-async function handleSpacebar() {
-    if (!testStarted) {
-        // Start the test
-        startTest();
-    } else if (!testFinished) {
-        // Record time and move to next question
-        recordTimeAndNextQuestion();
+async function recordQuestion(wrongData = null) {
+    // Trigger animation
+    const ripple = document.querySelector('.ripple-container');
+    ripple.classList.add('space-pressed');
+    setTimeout(() => ripple.classList.remove('space-pressed'), 500);
+    
+    const data = {
+        testId: testId
+    };
+    
+    if (wrongData) {
+        data.wrongQuestion = currentQuestion + 1;
+        data.category = wrongData.category;
+        data.subcategory = wrongData.subcategory;
+        wrongQuestions.push({
+            question: currentQuestion + 1,
+            ...wrongData
+        });
     }
-}
-
-function startTest() {
-    testStarted = true;
-    startTime = Date.now();
-    questionStartTime = startTime;
-    currentQuestion = 1;
-    generateQuestion();
-    updateDisplay();
-    startTimer();
-}
-
-function recordTimeAndNextQuestion() {
-    const currentTime = Date.now();
-    const questionTime = (currentTime - questionStartTime) / 1000;
-    times.push(questionTime);
     
-    if (currentQuestion < totalQuestions) {
-        // Move to next question
-        currentQuestion++;
-        questionStartTime = currentTime;
-        generateQuestion();
-        updateDisplay();
-    } else {
-        // Test is finished
-        finishTest();
-    }
-}
-
-function finishTest() {
-    testFinished = true;
-    const totalTime = (Date.now() - startTime) / 1000;
-    
-    // Show completion message and prompt for wrong questions
-    document.getElementById('question').innerHTML = `
-        Test completed in ${totalTime.toFixed(1)} seconds!<br>
-        Enter any wrong question numbers (comma-separated):
-        <input type="text" id="wrongQuestionInput" class="form-control mt-2">
-        <button onclick="submitTest()" class="btn btn-primary mt-2">Submit</button>
-    `;
-    
-    document.getElementById('questionNumber').textContent = 'Complete!';
-    document.getElementById('timer').textContent = totalTime.toFixed(1);
-}
-
-function generateQuestion() {
-    const num1 = Math.floor(Math.random() * 12) + 1;
-    const num2 = Math.floor(Math.random() * 12) + 1;
-    document.getElementById('question').textContent = `${num1} × ${num2} = ?`;
-}
-
-function updateDisplay() {
-    document.getElementById('questionNumber').textContent = testStarted ? 
-        `Question ${currentQuestion}/${totalQuestions}` : 
-        'Press spacebar to start';
-        
-    if (testStarted && !testFinished) {
-        const currentTime = (Date.now() - startTime) / 1000;
-        document.getElementById('timer').textContent = currentTime.toFixed(1);
-        requestAnimationFrame(updateDisplay);
-    }
-}
-
-function submitTest() {
-    const wrongInput = document.getElementById('wrongQuestionInput').value;
-    wrongQuestions = wrongInput.split(',')
-        .map(num => num.trim())
-        .filter(num => num !== '')
-        .map(num => parseInt(num))
-        .filter(num => !isNaN(num) && num > 0 && num <= totalQuestions);
-    
-    // First start the test
-    fetch('/api/start-test', {
+    const response = await fetch('/api/record-question', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.test_id) {
-            // Then record the test results
-            return fetch('/api/record-test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    testId: data.test_id,
-                    times: times,
-                    totalTime: (Date.now() - startTime) / 1000,
-                    totalQuestions: totalQuestions,
-                    completedQuestions: totalQuestions,
-                    wrongQuestions: wrongQuestions
-                })
-            });
-        } else {
-            throw new Error('Failed to start test');
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.test_id) {
-            window.location.href = `/results/${data.test_id}`;
-        } else {
-            alert('Error submitting test results');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error submitting test results');
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
     });
+    
+    const responseData = await response.json();
+    currentQuestion = responseData.current_question;
+    
+    // Update progress with animation
+    const progress = document.getElementById('progress');
+    progress.style.transform = 'scale(1.1)';
+    setTimeout(() => progress.style.transform = 'scale(1)', 200);
+    
+    const [_, total] = progress.textContent.split('/');
+    progress.textContent = `Question: ${currentQuestion}/${total}`;
+    
+    if (responseData.completed) {
+        endTest();
+    }
 }
 
-// Show wrong question modal
 function showWrongQuestionModal() {
     // Create modal if it doesn't exist
     let modal = document.getElementById('wrongQuestionModal');
@@ -312,22 +226,18 @@ function showWrongQuestionModal() {
                         });
                     }
                 });
-                
-                // Handle save
-                document.getElementById('save-wrong-question').addEventListener('click', async () => {
-                    const category = document.getElementById('category-select').value;
-                    const subcategory = document.getElementById('subcategory-select').value;
-                    
-                    if (category && subcategory) {
-                        wrongQuestions.push({
-                            question: currentQuestion,
-                            category: category,
-                            subcategory: subcategory
-                        });
-                        bootstrap.Modal.getInstance(modal).hide();
-                    }
-                });
             });
+        
+        // Handle save
+        document.getElementById('save-wrong-question').addEventListener('click', async () => {
+            const category = document.getElementById('category-select').value;
+            const subcategory = document.getElementById('subcategory-select').value;
+            
+            if (category && subcategory) {
+                await recordQuestion({ category, subcategory });
+                bootstrap.Modal.getInstance(modal).hide();
+            }
+        });
     }
     
     // Show modal
@@ -469,9 +379,4 @@ document.getElementById('new-test').addEventListener('click', () => {
         speedChart = null;
     }
     showScreen('setup');
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    updateDisplay();
-    document.getElementById('timer').textContent = '0.0';
 });

@@ -2,137 +2,76 @@
 
 {% block title %}Analytics{% endblock %}
 
-{% block styles %}
-<style>
-.chart-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.stats-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.stats-card h3 {
-    margin-top: 0;
-    color: #333;
-    font-size: 1.2rem;
-}
-
-.stats-value {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #007bff;
-}
-
-.recent-test {
-    padding: 0.5rem;
-    border-bottom: 1px solid #eee;
-}
-
-.recent-test:last-child {
-    border-bottom: none;
-}
-</style>
+{% block additional_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Analytics Dashboard</h2>
-    
-    <!-- Loading State -->
-    <div id="loadingState" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
-    
-    <!-- Error State -->
-    <div id="errorState" class="alert alert-danger d-none" role="alert">
-        Failed to load analytics data. Please try again later.
-    </div>
-    
-    <!-- Content -->
-    <div id="analyticsContent" class="d-none">
-        <!-- Overview Stats -->
+<div class="analytics-container">
+    <div class="container">
         <div class="row mb-4">
-            <div class="col-12 mb-4">
-                <div class="stats-card">
-                    <h3>Missed Problems by Category</h3>
-                    <div id="missedProblemsBreakdown"></div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h3>Total Tests</h3>
-                    <div class="stats-value" id="totalTests">-</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h3>Average Time</h3>
-                    <div class="stats-value" id="averageTime">-</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h3>Total Questions</h3>
-                    <div class="stats-value" id="totalQuestions">-</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <h3>Completion Rate</h3>
-                    <div class="stats-value" id="completionRate">-</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Charts Row 1 -->
-        <div class="row mb-4">
-            <div class="col-md-8">
-                <div class="chart-container">
-                    <h3>Performance Over Time</h3>
-                    <canvas id="performanceChart"></canvas>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="chart-container">
-                    <h3>Time Distribution</h3>
-                    <canvas id="timeDistributionChart"></canvas>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Charts Row 2 -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <h3>Category Performance</h3>
-                    <canvas id="categoryChart"></canvas>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <h3>Recent Tests</h3>
-                    <div id="recentTests"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Category Breakdown -->
-        <div class="row">
             <div class="col-12">
-                <div class="chart-container">
-                    <h3>Detailed Category Breakdown</h3>
-                    <div id="categoryBreakdown"></div>
+                <h2>Performance Analytics</h2>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Average Accuracy</h4>
+                    <div class="stat-value" id="averageAccuracy">--%</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Average Time</h4>
+                    <div class="stat-value" id="averageTime">-- minutes</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Total Tests</h4>
+                    <div class="stat-value" id="totalTests">--</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Best Category</h4>
+                    <div class="stat-value" id="bestCategory">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="row g-4">
+            <!-- Accuracy Trend -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h3>Accuracy Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="accuracyTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Trend -->
+            <div class="col-md-6">
+                <div class="chart-card">
+                    <h3>Time Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="timeTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Performance -->
+            <div class="col-md-12">
+                <div class="chart-card">
+                    <h3>Category Performance</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -142,5 +81,5 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='analytics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics-init.js') }}"></script>
 {% endblock %}

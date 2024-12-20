@@ -1,126 +1,200 @@
-// Categories data
-const categories = {
-    'Arithmetic': ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Fractions', 'Decimals'],
-    'Algebra': ['Linear Equations', 'Quadratic Equations', 'Systems of Equations', 'Inequalities', 'Functions'],
-    'Geometry': ['Angles', 'Triangles', 'Circles', 'Area', 'Volume', 'Coordinate Geometry'],
-    'Statistics': ['Mean/Median/Mode', 'Probability', 'Data Analysis', 'Standard Deviation'],
-    'Number Theory': ['Prime Numbers', 'Factors', 'Multiples', 'GCD/LCM', 'Modular Arithmetic'],
-    'Calculus': ['Limits', 'Derivatives', 'Integrals', 'Differential Equations'],
-    'Logic': ['Word Problems', 'Pattern Recognition', 'Logical Reasoning', 'Proof Techniques']
+const PROBLEM_CATEGORIES = {
+    'Geometry': [
+        'Angle Chasing',
+        'Congruence and Similarity',
+        'Circle Problems',
+        'Polygon Properties',
+        'Triangles',
+        'Coordinate Geometry',
+        '3D Geometry',
+        'Special Triangles'
+    ],
+    'Algebra': [
+        'Linear Equations',
+        'Quadratics',
+        'Polynomials',
+        'Exponential and Logarithmic Problems',
+        'Functional Equations',
+        'Sequences and Series'
+    ],
+    'Arithmetic and Number Theory': [
+        'Prime Factorization',
+        'Divisibility',
+        'Modular Arithmetic',
+        'Number Bases',
+        'Clock Problems',
+        'Digit Problems',
+        'Consecutive Numbers'
+    ],
+    'Word Problems': [
+        'Speed, Distance, and Rate',
+        'Work Problems',
+        'Mixture Problems',
+        'Age Problems',
+        'Percentage Problems',
+        'Proportion and Ratio Problems'
+    ],
+    'Counting and Probability': [
+        'Permutations',
+        'Combinations',
+        'Probability',
+        'Expected Value',
+        'Set Problems'
+    ],
+    'Miscellaneous Problems': [
+        'Clock Problems',
+        'Calendar Problems',
+        'Pattern Problems',
+        'Optimization Problems',
+        'Logic Problems',
+        'Estimation Problems'
+    ]
 };
 
-let currentQuestionNumber = null;
-let modal = null;
+let currentProblemNum = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the modal
-    modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+function initializeResultsPage() {
+    const mainCategorySelect = document.getElementById('mainCategory');
+    if (!mainCategorySelect) return;
     
-    // Initialize any existing categories
-    initializeExistingCategories();
-});
-
-function initializeExistingCategories() {
-    // Get the test ID from the container
-    const testId = document.querySelector('.container').dataset.testId;
+    // Clear any existing options
+    mainCategorySelect.innerHTML = '<option value="">Select category...</option>';
     
-    if (!testId) return;
-    
-    // Fetch existing categories
-    fetch(`/api/get-categories/${testId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.categories) {
-                Object.entries(data.categories).forEach(([questionNum, catData]) => {
-                    const questionDiv = document.querySelector(`.wrong-question[data-question="${questionNum}"]`);
-                    if (questionDiv) {
-                        questionDiv.classList.add('categorized');
-                        questionDiv.querySelector('.selected-category').textContent = 
-                            `Category: ${catData.main}${catData.sub ? ` - ${catData.sub}` : ''}`;
-                    }
-                });
-            }
-        })
-        .catch(error => console.error('Error loading categories:', error));
-}
-
-function showCategoryModal(questionNumber) {
-    currentQuestionNumber = questionNumber;
-    
-    // Reset and populate main category dropdown
-    const mainSelect = document.getElementById('mainCategory');
-    mainSelect.innerHTML = '<option value="">Select category...</option>';
-    Object.keys(categories).forEach(category => {
-        mainSelect.innerHTML += `<option value="${category}">${category}</option>`;
+    // Add main categories
+    Object.keys(PROBLEM_CATEGORIES).forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        mainCategorySelect.appendChild(option);
     });
     
-    // Reset subcategory dropdown
-    document.getElementById('subCategory').innerHTML = '<option value="">Select subcategory...</option>';
-    
-    modal.show();
+    // Add event listener for main category changes
+    mainCategorySelect.addEventListener('change', updateSubcategories);
 }
 
-// Event listener for main category changes
-document.getElementById('mainCategory').addEventListener('change', function() {
-    const mainCategory = this.value;
+function updateSubcategories() {
+    const mainCategory = document.getElementById('mainCategory').value;
     const subSelect = document.getElementById('subCategory');
     
-    // Reset subcategory dropdown
+    // Clear existing options
     subSelect.innerHTML = '<option value="">Select subcategory...</option>';
     
-    if (mainCategory && categories[mainCategory]) {
-        // Populate subcategories
-        categories[mainCategory].forEach(sub => {
-            subSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+    // Add subcategories if a main category is selected
+    if (mainCategory && PROBLEM_CATEGORIES[mainCategory]) {
+        PROBLEM_CATEGORIES[mainCategory].forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub;
+            option.textContent = sub;
+            subSelect.appendChild(option);
         });
     }
-});
+}
+
+function showCategoryModal(questionNum) {
+    currentProblemNum = questionNum;
+    
+    // Reset selections
+    document.getElementById('mainCategory').value = '';
+    document.getElementById('subCategory').innerHTML = '<option value="">Select subcategory...</option>';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+    modal.show();
+}
 
 function saveCategory() {
     const mainCategory = document.getElementById('mainCategory').value;
     const subCategory = document.getElementById('subCategory').value;
     
-    if (!mainCategory) {
-        alert('Please select a main category');
+    if (!mainCategory || !subCategory) {
+        alert('Please select both a category and subcategory');
         return;
     }
     
     const testId = document.querySelector('.container').dataset.testId;
+    if (!testId) {
+        console.error('Test ID not found');
+        return;
+    }
     
+    // Get CSRF token
+    const token = document.querySelector('meta[name="csrf-token"]').content;
+    
+    // Save category
     fetch('/api/save-category', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            'X-CSRF-TOKEN': token
         },
         body: JSON.stringify({
-            test_id: testId,
-            question_number: currentQuestionNumber,
-            main_category: mainCategory,
-            sub_category: subCategory
+            testId: testId,
+            questionNumber: currentProblemNum,
+            mainCategory: mainCategory,
+            subCategory: subCategory
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to save category');
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            // Update UI to show categorized state
-            const questionDiv = document.querySelector(`.wrong-question[data-question="${currentQuestionNumber}"]`);
-            questionDiv.classList.add('categorized');
-            questionDiv.querySelector('.selected-category').textContent = 
-                `Category: ${mainCategory}${subCategory ? ` - ${subCategory}` : ''}`;
+            // Update UI
+            const questionElement = document.querySelector(`[data-question="${currentProblemNum}"]`);
+            if (questionElement) {
+                questionElement.querySelector('.selected-category').textContent = 
+                    `Category: ${mainCategory} - ${subCategory}`;
+                questionElement.classList.add('categorized');
+            }
             
             // Close modal
-            modal.hide();
-            
-            // Show success message
-            const toast = new bootstrap.Toast(document.getElementById('successToast'));
-            toast.show();
+            bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
         } else {
-            alert('Failed to save category. Please try again.');
+            throw new Error('Failed to save category');
         }
     })
     .catch(error => {
-        console.error('Error saving category:', error);
-        alert('Failed to save category. Please try again.');
+        console.error('Error:', error);
+        alert('Error saving category. Please try again.');
     });
+}
+
+function exportTestData(testId) {
+    fetch(`/api/export-test/${testId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Create CSV content
+            let csvContent = 'Question Number,Time Taken,Wrong Answer,Category,Subcategory\n';
+            data.questions.forEach(q => {
+                csvContent += `${q.number},${q.time},${q.wrong},${q.category || ''},${q.subcategory || ''}\n`;
+            });
+            
+            // Add summary data
+            csvContent += '\nTest Summary\n';
+            csvContent += `Total Time,${data.total_time}\n`;
+            csvContent += `Completed Questions,${data.completed_questions}\n`;
+            
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `test_${testId}_results.csv`;
+            
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('Error exporting test data:', error);
+            alert('Error exporting test data. Please try again.');
+        });
 }

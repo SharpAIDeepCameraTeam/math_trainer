@@ -27,10 +27,6 @@
 </style>
 {% endblock %}
 
-{% block additional_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
-{% endblock %}
-
 {% block content %}
 <div class="container mt-4" {% if test %}data-test-id="{{ test.id }}"{% endif %}>
     <h2>Test Results</h2>
@@ -41,30 +37,6 @@
             <h5 class="card-title">Summary</h5>
             <p>Total Time: {{ test.total_time }}s</p>
             <p>Questions Completed: {{ test.completed_questions }}/{{ test.total_questions }}</p>
-            
-            <h5 class="mt-4">Performance Breakdown</h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <table class="table">
-                        <tr>
-                            <td>First 10 Problems Average:</td>
-                            <td>{{ averages.first_10 }}s</td>
-                        </tr>
-                        <tr>
-                            <td>Second 10 Problems Average:</td>
-                            <td>{{ averages.second_10 }}s</td>
-                        </tr>
-                        <tr>
-                            <td>Final 5 Problems Average:</td>
-                            <td>{{ averages.final_5 }}s</td>
-                        </tr>
-                        <tr>
-                            <td>Overall Average:</td>
-                            <td>{{ averages.overall }}s</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
             
             <h5 class="mt-4">Wrong Questions</h5>
             <div id="wrongQuestions">
@@ -96,12 +68,6 @@
                     <label for="mainCategory" class="form-label">Main Category</label>
                     <select class="form-select" id="mainCategory">
                         <option value="">Select category...</option>
-                        <option value="Geometry">Geometry</option>
-                        <option value="Algebra">Algebra</option>
-                        <option value="Arithmetic and Number Theory">Arithmetic and Number Theory</option>
-                        <option value="Word Problems">Word Problems</option>
-                        <option value="Counting and Probability">Counting and Probability</option>
-                        <option value="Miscellaneous Problems">Miscellaneous Problems</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -112,6 +78,7 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="saveCategory()">Save</button>
             </div>
         </div>
@@ -120,7 +87,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='results.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
