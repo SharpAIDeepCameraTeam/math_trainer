@@ -70,17 +70,165 @@
                 <div class="wrong-questions">
                     <h3>Questions to Review</h3>
                     <div id="wrongQuestionsList">
-                        <div class="text-center">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                        {% if test %}
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">Summary</h5>
+                                <p>Total Time: {{ test.total_time }}s</p>
+                                <p>Questions Completed: {{ test.completed_questions }}/{{ test.total_questions }}</p>
+                                
+                                <h5 class="mt-4">Wrong Questions</h5>
+                                <div id="wrongQuestions">
+                                    {% for q in wrong_questions %}
+                                    <div class="wrong-question mb-3" data-question="{{ q.number }}">
+                                        <p>Question {{ q.number }} (Time: {{ q.time }}s)</p>
+                                        <p class="selected-category text-muted">Category: Not categorized</p>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="showCategoryModal({{ q.number }})">
+                                            Select Category
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Category Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Categorize Problem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="mainCategory" class="form-label">Main Category</label>
+                    <select class="form-select" id="mainCategory">
+                        <option value="">Select category...</option>
+                        <option value="Geometry">Geometry</option>
+                        <option value="Algebra">Algebra</option>
+                        <option value="Arithmetic and Number Theory">Arithmetic and Number Theory</option>
+                        <option value="Word Problems">Word Problems</option>
+                        <option value="Counting and Probability">Counting and Probability</option>
+                        <option value="Miscellaneous Problems">Miscellaneous Problems</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="subCategory" class="form-label">Subcategory</label>
+                    <select class="form-select" id="subCategory">
+                        <option value="">Select subcategory...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveCategory()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const PROBLEM_CATEGORIES = {
+    'Geometry': [
+        'Angle Chasing',
+        'Congruence and Similarity',
+        'Circle Problems',
+        'Polygon Properties',
+        'Triangles',
+        'Coordinate Geometry',
+        '3D Geometry',
+        'Special Triangles'
+    ],
+    'Algebra': [
+        'Linear Equations',
+        'Quadratics',
+        'Polynomials',
+        'Exponential and Logarithmic Problems',
+        'Functional Equations',
+        'Sequences and Series'
+    ],
+    'Arithmetic and Number Theory': [
+        'Prime Factorization',
+        'Divisibility',
+        'Modular Arithmetic',
+        'Number Bases',
+        'Clock Problems',
+        'Digit Problems',
+        'Consecutive Numbers'
+    ],
+    'Word Problems': [
+        'Speed, Distance, and Rate',
+        'Work Problems',
+        'Mixture Problems',
+        'Age Problems',
+        'Percentage Problems',
+        'Proportion and Ratio Problems'
+    ],
+    'Counting and Probability': [
+        'Permutations',
+        'Combinations',
+        'Probability',
+        'Expected Value',
+        'Set Problems'
+    ],
+    'Miscellaneous Problems': [
+        'Clock Problems',
+        'Calendar Problems',
+        'Pattern Problems',
+        'Optimization Problems',
+        'Logic Problems',
+        'Estimation Problems'
+    ]
+};
+
+let currentProblemNum = null;
+
+document.getElementById('mainCategory').addEventListener('change', function() {
+    const mainCategory = this.value;
+    const subSelect = document.getElementById('subCategory');
+    subSelect.innerHTML = '<option value="">Select subcategory...</option>';
+    
+    if (mainCategory && PROBLEM_CATEGORIES[mainCategory]) {
+        PROBLEM_CATEGORIES[mainCategory].forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub;
+            option.textContent = sub;
+            subSelect.appendChild(option);
+        });
+    }
+});
+
+function showCategoryModal(questionNum) {
+    currentProblemNum = questionNum;
+    const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+    modal.show();
+}
+
+function saveCategory() {
+    const mainCategory = document.getElementById('mainCategory').value;
+    const subCategory = document.getElementById('subCategory').value;
+    
+    if (!mainCategory || !subCategory) {
+        alert('Please select both a category and subcategory');
+        return;
+    }
+    
+    const questionElement = document.querySelector(`[data-question="${currentProblemNum}"]`);
+    if (questionElement) {
+        questionElement.querySelector('.selected-category').textContent = 
+            `Category: ${mainCategory} - ${subCategory}`;
+    }
+    
+    bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+}
+</script>
 {% endblock %}
 
 {% block scripts %}

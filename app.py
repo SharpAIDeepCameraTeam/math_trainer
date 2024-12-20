@@ -176,12 +176,24 @@ def test_interface():
 
 @app.route('/results/<int:test_id>')
 def results(test_id):
-    test = None
-    if current_user.is_authenticated:
-        test = TestHistory.query.get_or_404(test_id)
-        if test.user_id != current_user.id:
-            abort(403)
-    return render_template('results.html', test=test)
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+        
+    test = TestHistory.query.get(test_id)
+    if not test or test.user_id != current_user.id:
+        abort(404)
+        
+    wrong_questions = []
+    if test.wrong_questions:
+        wrong_data = json.loads(test.wrong_questions)
+        times = json.loads(test.question_times)
+        for num in wrong_data:
+            wrong_questions.append({
+                'number': num,
+                'time': times[int(num)-1]
+            })
+    
+    return render_template('results.html', test=test, wrong_questions=wrong_questions)
 
 @app.route('/analytics')
 def analytics():
