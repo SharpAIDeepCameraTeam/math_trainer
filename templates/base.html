@@ -9,321 +9,104 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <style>
         .sidebar {
+            height: 100vh;
             position: fixed;
             top: 0;
             left: 0;
-            height: 100vh;
-            width: 250px;
-            background: #2c3e50;
-            color: white;
-            transition: all 0.3s;
-            z-index: 1000;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            z-index: 100;
+            background-color: #f8f9fa;
         }
-
+        
         .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
-            padding: 15px 25px;
-            font-size: 1.1em;
-            border-left: 3px solid transparent;
-            transition: all 0.2s;
+            font-weight: 500;
+            color: #333;
+            padding: 0.5rem 1rem;
         }
-
-        .sidebar .nav-link:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border-left-color: #3498db;
-        }
-
+        
         .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.15);
-            color: white;
-            border-left-color: #3498db;
+            color: #007bff;
         }
-
-        .sidebar .nav-link i {
-            margin-right: 10px;
-            width: 20px;
-            text-align: center;
+        
+        .sidebar .nav-link:hover {
+            color: #007bff;
         }
-
-        .sidebar-header {
-            padding: 20px;
-            background: #34495e;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        
+        .sidebar-heading {
+            font-size: .75rem;
+            text-transform: uppercase;
         }
-
-        .sidebar-header h3 {
-            margin: 0;
-            font-size: 1.5em;
-            font-weight: 300;
-        }
-
+        
         .main-content {
-            margin-left: 250px;
+            margin-left: 240px;
             padding: 20px;
-            transition: all 0.3s;
         }
-
-        .user-profile {
-            padding: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .user-profile img {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            margin-bottom: 10px;
-            border: 2px solid rgba(255,255,255,0.2);
-        }
-
-        .user-profile h6 {
-            margin: 0;
-            font-weight: 300;
-        }
-
+        
         @media (max-width: 768px) {
             .sidebar {
-                margin-left: -250px;
-            }
-            .sidebar.active {
-                margin-left: 0;
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 20px;
             }
             .main-content {
                 margin-left: 0;
             }
-            .main-content.active {
-                margin-left: 250px;
-            }
-        }
-
-        .dark-theme {
-            background-color: #1a1a1a;
-            color: #ffffff;
         }
     </style>
-    {% block additional_styles %}{% endblock %}
-    {% block extra_head %}{% endblock %}
+    {% block styles %}{% endblock %}
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h3>Math Trainer</h3>
-        </div>
-        <div class="user-profile mb-4">
-            {% if current_user.is_authenticated %}
-                <div class="text-center">
-                    <img src="https://www.gravatar.com/avatar/{{ current_user.username|lower|md5 }}?d=identicon&s=80" alt="Profile" class="rounded-circle mb-2" style="width: 80px; height: 80px;">
-                    <h6 class="mb-0">{{ current_user.username }}</h6>
-                    <small class="text-success"><i class="bi bi-circle-fill"></i> Logged In</small>
-                </div>
-            {% else %}
-                <div class="text-center">
-                    <img src="https://www.gravatar.com/avatar/default?d=identicon&s=80" alt="Guest" class="rounded-circle mb-2 opacity-50" style="width: 80px; height: 80px;">
-                    <h6 class="mb-0 text-muted">Guest User</h6>
-                    <small class="text-danger"><i class="bi bi-circle-fill"></i> Not Logged In</small>
-                </div>
-            {% endif %}
-        </div>
-        <nav class="nav flex-column">
-            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="/dashboard">
-                <i class="bi bi-speedometer2"></i> Dashboard
-            </a>
-            <a class="nav-link {% if request.endpoint == 'train' %}active{% endif %}" href="/train">
-                <i class="bi bi-play-circle"></i> Start Training
-            </a>
-            <a class="nav-link {% if request.endpoint == 'history' %}active{% endif %}" href="/history">
-                <i class="bi bi-clock-history"></i> History
-            </a>
-            <a class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}" href="/analytics">
-                <i class="bi bi-graph-up"></i> Analytics
-            </a>
-            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                <i class="bi bi-gear"></i> Settings
-            </a>
-            {% if current_user.is_authenticated %}
-            <div class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                    <img src="https://www.gravatar.com/avatar/{{ current_user.username|lower|md5 }}?d=identicon&s=32" 
-                        alt="Profile" class="rounded-circle me-1" style="width: 32px; height: 32px;">
-                    {{ current_user.username }}
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
-                </ul>
+    {% if current_user.is_authenticated %}
+    <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+        <div class="position-sticky">
+            <div class="px-3 mb-4">
+                <h5>Math Trainer</h5>
+                <p class="text-muted small mb-0">Welcome, {{ current_user.username }}</p>
             </div>
-            {% else %}
-            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">
-                <i class="bi bi-box-arrow-in-right"></i> Login
-            </a>
-            {% endif %}
-        </nav>
-    </div>
-
-    {% if not current_user.is_authenticated %}
-    <div class="alert alert-info text-center mb-0 rounded-0 alert-dismissible fade show" role="alert">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col">
-                    <span>You're using Math Trainer as a guest. <a href="#" data-bs-toggle="modal" data-bs-target="#signupModal" class="alert-link">Sign up</a> or <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="alert-link">log in</a> to save your progress!</span>
-                </div>
-            </div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'test' %}active{% endif %}" href="{{ url_for('test') }}">
+                        <i class="bi bi-stopwatch me-2"></i>Take Test
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}" href="{{ url_for('analytics') }}">
+                        <i class="bi bi-graph-up me-2"></i>Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">
+                        <i class="bi bi-box-arrow-right me-2"></i>Logout
+                    </a>
+                </li>
+            </ul>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+    </nav>
     {% endif %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <div class="main-content">
+    <main class="{% if current_user.is_authenticated %}main-content{% endif %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
-    <!-- Settings Modal -->
-    <div class="modal fade" id="settingsModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Settings</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Theme</label>
-                        <select class="form-select" id="theme-select">
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="sound-effects" checked>
-                            <label class="form-check-label">Enable Sound Effects</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-settings">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Login</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="container-fluid">
-                        <div class="row">
-                            <div class="col-12">
-                                <form method="POST" action="{{ url_for('login_modal') }}">
-                                    <div class="mb-3">
-                                        <label for="username" class="form-label">Username</label>
-                                        <input type="text" class="form-control form-control-lg" id="username" name="username" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="password" class="form-label">Password</label>
-                                        <input type="password" class="form-control form-control-lg" id="password" name="password" required>
-                                    </div>
-                                    <div class="d-grid gap-2">
-                                        <button type="submit" class="btn btn-primary btn-lg">Login</button>
-                                        <button class="btn btn-outline-primary btn-lg" onclick="$('#loginModal').modal('hide')" data-bs-toggle="modal" data-bs-target="#signupModal">Create Account</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Signup Modal -->
-    <div class="modal fade" id="signupModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Account</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form method="POST" action="{{ url_for('signup') }}" id="signup-form">
-                        <div class="mb-3">
-                            <label for="signup-username" class="form-label">Username</label>
-                            <input type="text" class="form-control form-control-lg" id="signup-username" name="username" 
-                                required minlength="3" pattern="[a-zA-Z0-9_]+" 
-                                title="Username must be at least 3 characters long and can only contain letters, numbers, and underscores">
-                            <div class="form-text">Must be at least 3 characters long and can only contain letters, numbers, and underscores.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="signup-password" class="form-label">Password</label>
-                            <input type="password" class="form-control form-control-lg" id="signup-password" name="password" 
-                                required minlength="8"
-                                title="Password must be at least 8 characters long">
-                            <div class="form-text">Must be at least 8 characters long.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="confirm-password" class="form-label">Confirm Password</label>
-                            <input type="password" class="form-control form-control-lg" id="confirm-password" name="confirm_password" required>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
-                            <button type="button" class="btn btn-outline-secondary btn-lg" data-bs-dismiss="modal">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Password confirmation validation
-        const signupForm = document.getElementById('signup-form');
-        const password = document.getElementById('signup-password');
-        const confirmPassword = document.getElementById('confirm-password');
-
-        function validatePassword() {
-            if (password.value !== confirmPassword.value) {
-                confirmPassword.setCustomValidity("Passwords don't match");
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
-        }
-
-        password.addEventListener('change', validatePassword);
-        confirmPassword.addEventListener('keyup', validatePassword);
-
-        // Close modals when redirected
-        if (document.querySelector('.alert')) {
-            const loginModal = document.getElementById('loginModal');
-            const signupModal = document.getElementById('signupModal');
-            if (loginModal) bootstrap.Modal.getInstance(loginModal)?.hide();
-            if (signupModal) bootstrap.Modal.getInstance(signupModal)?.hide();
-        }
-    });
-    </script>
-    {% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

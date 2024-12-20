@@ -3,7 +3,7 @@ let timerInterval = null;
 let startTime = 0;
 let questionStartTime = 0;
 let currentQuestion = 0;
-let totalQuestions = null;
+let totalQuestions = 25;
 let times = [];
 let testStarted = false;
 let testFinished = false;
@@ -134,6 +134,7 @@ function startTest() {
     startTime = Date.now();
     questionStartTime = startTime;
     currentQuestion = 1;
+    generateQuestion();
     updateDisplay();
     startTimer();
 }
@@ -147,6 +148,7 @@ function recordTimeAndNextQuestion() {
         // Move to next question
         currentQuestion++;
         questionStartTime = currentTime;
+        generateQuestion();
         updateDisplay();
     } else {
         // Test is finished
@@ -159,19 +161,26 @@ function finishTest() {
     const totalTime = (Date.now() - startTime) / 1000;
     
     // Show completion message and prompt for wrong questions
-    document.getElementById('progress').innerHTML = `
+    document.getElementById('question').innerHTML = `
         Test completed in ${totalTime.toFixed(1)} seconds!<br>
         Enter any wrong question numbers (comma-separated):
         <input type="text" id="wrongQuestionInput" class="form-control mt-2">
         <button onclick="submitTest()" class="btn btn-primary mt-2">Submit</button>
     `;
     
+    document.getElementById('questionNumber').textContent = 'Complete!';
     document.getElementById('timer').textContent = totalTime.toFixed(1);
 }
 
+function generateQuestion() {
+    const num1 = Math.floor(Math.random() * 12) + 1;
+    const num2 = Math.floor(Math.random() * 12) + 1;
+    document.getElementById('question').textContent = `${num1} × ${num2} = ?`;
+}
+
 function updateDisplay() {
-    document.getElementById('progress').textContent = testStarted ? 
-        `Question: ${currentQuestion}/${totalQuestions}` : 
+    document.getElementById('questionNumber').textContent = testStarted ? 
+        `Question ${currentQuestion}/${totalQuestions}` : 
         'Press spacebar to start';
         
     if (testStarted && !testFinished) {
@@ -189,20 +198,36 @@ function submitTest() {
         .map(num => parseInt(num))
         .filter(num => !isNaN(num) && num > 0 && num <= totalQuestions);
     
-    // Send test data to server
-    fetch('/api/record-test', {
+    // First start the test
+    fetch('/api/start-test', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            testId: testId,
-            times: times,
-            totalTime: (Date.now() - startTime) / 1000,
-            totalQuestions: totalQuestions,
-            completedQuestions: totalQuestions,
-            wrongQuestions: wrongQuestions
-        })
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.test_id) {
+            // Then record the test results
+            return fetch('/api/record-test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    testId: data.test_id,
+                    times: times,
+                    totalTime: (Date.now() - startTime) / 1000,
+                    totalQuestions: totalQuestions,
+                    completedQuestions: totalQuestions,
+                    wrongQuestions: wrongQuestions
+                })
+            });
+        } else {
+            throw new Error('Failed to start test');
+        }
     })
     .then(response => response.json())
     .then(data => {
@@ -444,4 +469,9 @@ document.getElementById('new-test').addEventListener('click', () => {
         speedChart = null;
     }
     showScreen('setup');
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateDisplay();
+    document.getElementById('timer').textContent = '0.0';
 });

@@ -2,10 +2,6 @@
 
 {% block title %}Dashboard{% endblock %}
 
-{% block additional_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-{% endblock %}
-
 {% block content %}
 <div class="container mt-4">
     <div class="row">
@@ -14,34 +10,30 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Practice Time</h5>
-                            <canvas id="practiceTimeChart"></canvas>
+                            <h5 class="card-title">Quick Stats</h5>
+                            <div class="row mt-4">
+                                <div class="col-6 text-center">
+                                    <h3 class="mb-0" id="totalTests">0</h3>
+                                    <p class="text-muted">Total Tests</p>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <h3 class="mb-0" id="avgTime">0s</h3>
+                                    <p class="text-muted">Avg. Time per Question</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Category Performance</h5>
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mb-4">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="card-title mb-0">Quick Actions</h5>
-                            </div>
-                            <div class="d-flex gap-3">
-                                <a href="{{ url_for('test_interface') }}" class="btn btn-primary">
+                            <h5 class="card-title">Quick Actions</h5>
+                            <div class="d-flex gap-3 mt-4">
+                                <a href="{{ url_for('test') }}" class="btn btn-primary flex-grow-1">
                                     <i class="bi bi-play-circle-fill me-2"></i>Start New Test
                                 </a>
-                                <a href="{{ url_for('train') }}" class="btn btn-outline-primary">
-                                    <i class="bi bi-book-fill me-2"></i>Practice Mode
+                                <a href="{{ url_for('analytics') }}" class="btn btn-outline-primary flex-grow-1">
+                                    <i class="bi bi-graph-up me-2"></i>View Analytics
                                 </a>
                             </div>
                         </div>
@@ -54,8 +46,23 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Recent Tests</h5>
-                            <div id="test-tabs" class="test-tabs">
-                                <!-- Test tabs will be populated by JavaScript -->
+                            <div class="table-responsive mt-3">
+                                <table class="table" id="recentTestsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Questions</th>
+                                            <th>Completed</th>
+                                            <th>Wrong</th>
+                                            <th>Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="no-data">
+                                            <td colspan="5" class="text-center">No tests taken yet</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -67,20 +74,34 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='js/dashboard-init.js') }}"></script>
 <script>
-// Fetch dashboard data and initialize charts
-fetch('/api/dashboard-data')
+// Fetch dashboard data
+fetch('/api/analytics/data')
     .then(response => response.json())
     .then(data => {
-        window.dashboardData = data;
-        initializeDashboard();
+        // Update stats
+        document.getElementById('totalTests').textContent = data.totalTests;
+        document.getElementById('avgTime').textContent = Math.round(data.averageTime) + 's';
+
+        // Update recent tests table
+        const tbody = document.querySelector('#recentTestsTable tbody');
+        if (data.recentTests && data.recentTests.length > 0) {
+            tbody.innerHTML = '';
+            data.recentTests.forEach(test => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${test.date}</td>
+                        <td>${test.total}</td>
+                        <td>${test.completed}</td>
+                        <td>${test.wrong}</td>
+                        <td>${Math.round(test.total_time)}s</td>
+                    </tr>
+                `;
+            });
+        }
     })
     .catch(error => {
         console.error('Error loading dashboard data:', error);
-        // Show empty state gracefully
-        document.querySelectorAll('.no-data').forEach(el => el.style.display = 'block');
     });
 </script>
 {% endblock %}
